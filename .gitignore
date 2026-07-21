@@ -1,0 +1,29 @@
+# Build ciktilari
+target/
+dist/
+
+# Yerel ayar / veri (modem sifresi, telegram token burada olur - asla commit'leme)
+config.properties
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Loglar
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Copilot app-modernization kalintisi
+.github/modernize/

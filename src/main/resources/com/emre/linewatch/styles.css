@@ -1,0 +1,183 @@
+/* LineWatch — koyu "hat operasyon konsolu" temasi
+   zemin #0b1220 / kart #121c2e / cizgi #22304a / metin #d7e2f0
+   seri renkleri (dark-surface dogrulanmis): down #3d85cc, up #b8801f */
+
+.root {
+    -fx-background-color: #0b1220;
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 13px;
+    -fx-text-fill: #d7e2f0;
+    -lw-card: #121c2e;
+    -lw-line: #22304a;
+    -lw-ink: #d7e2f0;
+    -lw-muted: #7b8ca6;
+    -lw-accent: #3d85cc;
+    -lw-up: #3fb950;
+    -lw-down: #f85149;
+    -lw-amber: #b8801f;
+}
+
+.label { -fx-text-fill: -lw-ink; }
+
+/* ---------- ust baslik cubugu ---------- */
+.app-header {
+    -fx-background-color: linear-gradient(to right, #0e1830, #0b1220 70%);
+    -fx-padding: 14 20 14 20;
+    -fx-border-color: transparent transparent -lw-line transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.app-title {
+    -fx-font-family: "Consolas";
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -lw-ink;
+}
+.app-title .accent { -fx-text-fill: -lw-accent; }
+.app-subtitle { -fx-text-fill: -lw-muted; -fx-font-size: 11px; }
+
+.status-pill {
+    -fx-background-radius: 20;
+    -fx-padding: 5 14 5 14;
+    -fx-font-family: "Consolas";
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+.status-pill-up { -fx-background-color: #12291a; -fx-text-fill: -lw-up; -fx-border-color: #1f4d2c; -fx-border-radius: 20; }
+.status-pill-down { -fx-background-color: #2d1416; -fx-text-fill: -lw-down; -fx-border-color: #5c2326; -fx-border-radius: 20; }
+.status-pill-unknown { -fx-background-color: #1a2333; -fx-text-fill: -lw-muted; -fx-border-color: -lw-line; -fx-border-radius: 20; }
+
+/* ---------- sekmeler ---------- */
+.tab-pane { -fx-tab-min-height: 34; -fx-tab-max-height: 34; }
+.tab-pane .tab-header-area { -fx-padding: 6 12 0 12; }
+.tab-pane .tab-header-background { -fx-background-color: #0b1220; }
+.tab-pane .tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-padding: 6 16 6 16;
+    -fx-border-color: transparent transparent transparent transparent;
+    -fx-border-width: 0 0 2 0;
+}
+.tab-pane .tab:selected { -fx-border-color: transparent transparent -lw-accent transparent; }
+.tab-pane .tab .tab-label { -fx-text-fill: -lw-muted; -fx-font-size: 13px; }
+.tab-pane .tab:selected .tab-label { -fx-text-fill: -lw-ink; -fx-font-weight: bold; }
+.tab-pane .tab:hover .tab-label { -fx-text-fill: -lw-ink; }
+.tab-pane .tab-content-area { -fx-background-color: #0b1220; }
+
+/* ---------- kartlar / stat kutulari ---------- */
+.card {
+    -fx-background-color: -lw-card;
+    -fx-background-radius: 12;
+    -fx-border-color: -lw-line;
+    -fx-border-radius: 12;
+    -fx-padding: 14 18 14 18;
+}
+.card-title {
+    -fx-text-fill: -lw-muted;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+.card-value {
+    -fx-font-family: "Consolas";
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -lw-ink;
+}
+.card-sub { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-family: "Consolas"; }
+.card-value-warn { -fx-text-fill: #e3b341; }
+.card-value-bad { -fx-text-fill: -lw-down; }
+.card-value-good { -fx-text-fill: -lw-up; }
+
+.hero {
+    -fx-background-color: linear-gradient(to bottom right, #14213a, #101a2c);
+    -fx-background-radius: 14;
+    -fx-border-color: -lw-line;
+    -fx-border-radius: 14;
+    -fx-padding: 18 22 18 22;
+}
+.hero-status { -fx-font-family: "Consolas"; -fx-font-size: 30px; -fx-font-weight: bold; }
+.hero-status-up { -fx-text-fill: -lw-up; }
+.hero-status-down { -fx-text-fill: -lw-down; }
+.hero-sub { -fx-text-fill: -lw-muted; -fx-font-size: 12px; }
+
+.muted { -fx-text-fill: -lw-muted; }
+.section-title { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-weight: bold; }
+
+/* ---------- grafikler ---------- */
+.chart { -fx-padding: 6; -fx-background-color: transparent; }
+.chart-title { -fx-text-fill: -lw-ink; -fx-font-size: 13px; -fx-font-weight: bold; }
+.chart-content { -fx-padding: 6; }
+.chart-plot-background { -fx-background-color: transparent; }
+.chart-vertical-grid-lines { -fx-stroke: #16223a; }
+.chart-horizontal-grid-lines { -fx-stroke: #16223a; }
+.chart-alternative-row-fill { -fx-fill: transparent; }
+.chart-vertical-zero-line, .chart-horizontal-zero-line { -fx-stroke: -lw-line; }
+.axis { -fx-tick-label-fill: -lw-muted; -fx-tick-label-font-size: 10px; }
+.axis-label { -fx-text-fill: -lw-muted; }
+.axis:bottom { -fx-border-color: -lw-line transparent transparent transparent; }
+.axis:left { -fx-border-color: transparent -lw-line transparent transparent; }
+.chart-legend { -fx-background-color: transparent; }
+.chart-legend-item { -fx-text-fill: -lw-muted; }
+
+.chart-series-line { -fx-stroke-width: 2px; }
+.default-color0.chart-series-line { -fx-stroke: #3d85cc; }
+.default-color1.chart-series-line { -fx-stroke: #b8801f; }
+.default-color0.chart-line-symbol { -fx-background-color: #3d85cc, #0b1220; }
+.default-color1.chart-line-symbol { -fx-background-color: #b8801f, #0b1220; }
+
+/* ---------- tablo ---------- */
+.table-view {
+    -fx-background-color: -lw-card;
+    -fx-background-radius: 12;
+    -fx-border-color: -lw-line;
+    -fx-border-radius: 12;
+    -fx-table-cell-border-color: transparent;
+}
+.table-view .column-header-background { -fx-background-color: transparent; -fx-padding: 4 0 4 0; }
+.table-view .column-header { -fx-background-color: transparent; -fx-border-color: transparent transparent -lw-line transparent; }
+.table-view .column-header .label { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-weight: bold; }
+.table-view .filler { -fx-background-color: transparent; }
+.table-row-cell { -fx-background-color: transparent; -fx-border-color: transparent; -fx-cell-size: 32; }
+.table-row-cell:odd { -fx-background-color: #0f1828; }
+.table-row-cell:selected { -fx-background-color: #1c2c48; }
+.table-row-cell .text { -fx-fill: -lw-ink; }
+.table-view .table-cell { -fx-text-fill: -lw-ink; -fx-border-color: transparent; }
+
+/* ---------- form / kontrol ---------- */
+.text-field, .password-field, .combo-box, .check-box .box {
+    -fx-background-color: #0e1727;
+    -fx-background-radius: 8;
+    -fx-border-color: -lw-line;
+    -fx-border-radius: 8;
+    -fx-text-fill: -lw-ink;
+    -fx-prompt-text-fill: #55647d;
+}
+.text-field:focused, .password-field:focused, .combo-box:focused { -fx-border-color: -lw-accent; }
+.combo-box .list-cell { -fx-text-fill: -lw-ink; -fx-background-color: transparent; }
+.combo-box-popup .list-view { -fx-background-color: -lw-card; -fx-border-color: -lw-line; }
+.combo-box-popup .list-cell { -fx-background-color: -lw-card; -fx-text-fill: -lw-ink; }
+.combo-box-popup .list-cell:hover { -fx-background-color: #1c2c48; }
+.combo-box .arrow { -fx-background-color: -lw-muted; }
+
+.check-box { -fx-text-fill: -lw-ink; }
+.check-box .box { -fx-background-radius: 4; -fx-border-radius: 4; -fx-padding: 3; }
+.check-box:selected .mark { -fx-background-color: -lw-accent; }
+
+.button {
+    -fx-background-color: -lw-accent;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+}
+.button:hover { -fx-background-color: #4a97e0; }
+.button.secondary { -fx-background-color: #1a2740; -fx-text-fill: -lw-ink; -fx-border-color: -lw-line; -fx-border-radius: 8; }
+.button.secondary:hover { -fx-background-color: #223354; }
+
+.separator .line { -fx-border-color: -lw-line transparent transparent transparent; }
+
+.scroll-pane, .scroll-pane .viewport { -fx-background-color: transparent; }
+.scroll-bar { -fx-background-color: transparent; }
+.scroll-bar .thumb { -fx-background-color: #26354f; -fx-background-radius: 6; }
+.scroll-bar .track { -fx-background-color: transparent; }
+.scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-background-color: transparent; }
