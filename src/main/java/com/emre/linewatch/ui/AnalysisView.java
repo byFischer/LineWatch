@@ -3,14 +3,10 @@ package com.emre.linewatch.ui;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.SampleRepository;
+import com.emre.linewatch.ui.widget.HeatMap;
+import com.emre.linewatch.ui.widget.Segmented;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Tooltip;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -19,24 +15,32 @@ import javafx.scene.layout.VBox;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 7x24 isi haritasi: hangi gun/saatte CRC patliyor ya da hat kopuyor?
- * Tek sekans mavi rampa (koyu -> acik), log olcek.
+ * 7x24 isi haritasi: hafta icinde hangi gun ve saatte CRC patliyor ya da hat kopuyor?
+ * Kenarlardaki toplam cubuklari gunluk ve saatlik dagilimi ozetler.
  */
 public class AnalysisView extends VBox {
 
-    private static final String[] DAYS = {"Pzt", "Sal", "Car", "Per", "Cum", "Cmt", "Paz"};
+    private static final String[] DAYS = {"Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"};
+    private static final int RAMP_STEPS = 9;
 
     private final SampleRepository samples;
     private final EventRepository events;
-    private final ComboBox<String> metric = new ComboBox<>();
-    private final ComboBox<String> period = new ComboBox<>();
-    private final Region[][] cells = new Region[7][24];
-    private final Label info = new Label();
+
+    private final Segmented metric = new Segmented("CRC hata artışı", "Kopma sayısı");
+    private final Segmented period = new Segmented("Son 7 gün", "Son 30 gün");
+    private final HeatMap heat = new HeatMap();
+    private final Label total = Ui.faint("");
+    private final Label hover = Ui.muted("Hücrenin üzerine gel");
+    private final VBox worst = new VBox(6);
+    private final List<Region> rampCells = new ArrayList<>();
+
     private final ExecutorService loader = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "analysis-loader");
         t.setDaemon(true);
@@ -46,128 +50,133 @@ public class AnalysisView extends VBox {
     public AnalysisView(SampleRepository samples, EventRepository events) {
         this.samples = samples;
         this.events = events;
-        setPadding(new Insets(16));
+
+        getStyleClass().add("page");
         setSpacing(14);
 
-        metric.getItems().addAll("CRC hata artisi", "Kopma sayisi");
-        metric.getSelectionModel().selectFirst();
-        metric.setOnAction(e -> reload());
-        period.getItems().addAll("Son 7 gun", "Son 30 gun");
-        period.getSelectionModel().selectFirst();
-        period.setOnAction(e -> reload());
-        Button refresh = new Button("Yenile");
-        refresh.getStyleClass().add("secondary");
-        refresh.setOnAction(e -> reload());
+        metric.setOnSelect(i -> reload());
+        period.setOnSelect(i -> reload());
+        HBox toolbar = Ui.row(14, Ui.cardTitle("METRİK"), metric,
+                Ui.cardTitle("DÖNEM"), period, Ui.hSpacer(), hover);
 
-        Label t1 = new Label("METRIK");
-        t1.getStyleClass().add("section-title");
-        Label t2 = new Label("DONEM");
-        t2.getStyleClass().add("section-title");
-        HBox toolbar = new HBox(10, t1, metric, t2, period, refresh);
-        toolbar.setAlignment(Pos.CENTER_LEFT);
+        heat.setOnHover(text -> hover.setText(text == null ? "Hücrenin üzerine gel" : text));
+        VBox heatCard = Ui.card(12, heat, Ui.row(16, buildLegend(), Ui.hSpacer(), total));
+        VBox.setVgrow(heat, Priority.ALWAYS);
+        VBox.setVgrow(heatCard, Priority.ALWAYS);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(3);
-        grid.setVgap(3);
-        // saat basliklari
-        for (int h = 0; h < 24; h++) {
-            Label l = new Label(String.format("%02d", h));
-            l.getStyleClass().add("card-sub");
-            GridPane.setHalignment(l, javafx.geometry.HPos.CENTER);
-            grid.add(l, h + 1, 0);
-        }
-        for (int d = 0; d < 7; d++) {
-            Label l = new Label(DAYS[d]);
-            l.getStyleClass().add("card-sub");
-            grid.add(l, 0, d + 1);
-            for (int h = 0; h < 24; h++) {
-                Region cell = new Region();
-                cell.setMinSize(20, 26);
-                cell.setMaxWidth(Double.MAX_VALUE);
-                GridPane.setHgrow(cell, Priority.ALWAYS);
-                cells[d][h] = cell;
-                grid.add(cell, h + 1, d + 1);
-            }
-        }
+        VBox worstCard = Ui.card(10, Ui.cardTitle("EN YOĞUN SAAT DİLİMLERİ"), worst);
 
-        Label legendLow = new Label("az");
-        legendLow.getStyleClass().add("card-sub");
-        Label legendHigh = new Label("cok");
-        legendHigh.getStyleClass().add("card-sub");
-        HBox legend = new HBox(6, legendLow, ramp(), legendHigh);
-        legend.setAlignment(Pos.CENTER_LEFT);
-        info.getStyleClass().add("card-sub");
+        getChildren().addAll(toolbar, heatCard, worstCard);
 
-        VBox card = new VBox(12, grid, new HBox(20, legend, info));
-        card.getStyleClass().add("card");
-        getChildren().addAll(toolbar, card);
+        Theme.paletteProperty().addListener((obs, old, now) -> paintRamp());
         reload();
     }
 
-    private HBox ramp() {
-        HBox box = new HBox(1);
-        for (int i = 0; i < 8; i++) {
-            Region r = new Region();
-            r.setMinSize(18, 12);
-            r.setStyle("-fx-background-color:" + color(i / 7.0) + "; -fx-background-radius:2;");
-            box.getChildren().add(r);
+    private HBox buildLegend() {
+        HBox ramp = new HBox(2);
+        for (int i = 0; i < RAMP_STEPS; i++) {
+            Region cell = new Region();
+            cell.setMinSize(16, 11);
+            cell.setPrefSize(16, 11);
+            rampCells.add(cell);
+            ramp.getChildren().add(cell);
         }
-        return box;
+        paintRamp();
+        return Ui.row(8, Ui.faint("az"), ramp, Ui.faint("çok"));
+    }
+
+    private void paintRamp() {
+        for (int i = 0; i < rampCells.size(); i++) {
+            var color = HeatMap.rampSample(i / (double) (RAMP_STEPS - 1));
+            rampCells.get(i).setStyle("-fx-background-color: " + hex(color) + "; -fx-background-radius: 2;");
+        }
+    }
+
+    private static String hex(javafx.scene.paint.Color c) {
+        return String.format("#%02x%02x%02x",
+                (int) Math.round(c.getRed() * 255),
+                (int) Math.round(c.getGreen() * 255),
+                (int) Math.round(c.getBlue() * 255));
     }
 
     private void reload() {
-        boolean crcMode = metric.getSelectionModel().getSelectedIndex() == 0;
-        int days = period.getSelectionModel().getSelectedIndex() == 0 ? 7 : 30;
+        boolean crcMode = metric.selected() == 0;
+        int days = period.selected() == 0 ? 7 : 30;
         long from = System.currentTimeMillis() - days * 24L * 3600_000;
+
         loader.execute(() -> {
             try {
                 double[][] matrix = new double[7][24];
                 if (crcMode) {
-                    List<long[]> pts = samples.findCrcPointsSince(from);
                     long prev = -1;
-                    for (long[] p : pts) {
-                        if (prev >= 0 && p[1] >= prev) {
-                            LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochMilli(p[0]), ZoneId.systemDefault());
-                            matrix[dt.getDayOfWeek().getValue() - 1][dt.getHour()] += p[1] - prev;
+                    for (long[] point : samples.findCrcPointsSince(from)) {
+                        if (prev >= 0 && point[1] >= prev) {
+                            LocalDateTime dt = at(point[0]);
+                            matrix[dt.getDayOfWeek().getValue() - 1][dt.getHour()] += point[1] - prev;
                         }
-                        prev = p[1];
+                        prev = point[1];
                     }
                 } else {
                     for (long ts : events.timesSince(from, LineEvent.Type.LINK_DOWN)) {
-                        LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+                        LocalDateTime dt = at(ts);
                         matrix[dt.getDayOfWeek().getValue() - 1][dt.getHour()]++;
                     }
                 }
-                double max = 0, total = 0;
-                for (double[] row : matrix) for (double v : row) { max = Math.max(max, v); total += v; }
-                final double fMax = max, fTotal = total;
-                Platform.runLater(() -> render(matrix, fMax, fTotal, crcMode, days));
+
+                double max = 0;
+                double sum = 0;
+                for (double[] row : matrix) {
+                    for (double v : row) {
+                        max = Math.max(max, v);
+                        sum += v;
+                    }
+                }
+                List<Cell> top = topCells(matrix, 3);
+
+                final double fMax = max;
+                final double fSum = sum;
+                Platform.runLater(() -> {
+                    String unit = crcMode ? "CRC" : "kopma";
+                    heat.setData(matrix, fMax, unit);
+                    total.setText("son " + days + " gün toplamı: "
+                            + Fmt.count(Math.round(fSum)) + " " + unit);
+                    renderWorst(top, unit, fSum);
+                });
             } catch (Exception e) {
-                Platform.runLater(() -> info.setText("Veri yuklenemedi: " + e.getMessage()));
+                Platform.runLater(() -> total.setText("Veri yüklenemedi: " + e.getMessage()));
             }
         });
     }
 
-    private void render(double[][] matrix, double max, double total, boolean crcMode, int days) {
-        for (int d = 0; d < 7; d++) {
-            for (int h = 0; h < 24; h++) {
-                double v = matrix[d][h];
-                // log olcek: tek buyuk patlama diger her seyi soldurmasin
-                double norm = max > 0 && v > 0 ? Math.log1p(v) / Math.log1p(max) : 0;
-                cells[d][h].setStyle("-fx-background-color:" + color(norm) + "; -fx-background-radius:3;");
-                Tooltip.install(cells[d][h], new Tooltip(DAYS[d] + " " + String.format("%02d:00", h)
-                        + " — " + (crcMode ? String.format("%,.0f CRC", v) : String.format("%.0f kopma", v))));
-            }
+    private void renderWorst(List<Cell> top, String unit, double sum) {
+        worst.getChildren().clear();
+        if (top.isEmpty() || sum <= 0) {
+            worst.getChildren().add(Ui.faint("Bu dönemde kayda değer bir yoğunluk yok."));
+            return;
         }
-        info.setText(String.format("son %d gun toplam: %s", days,
-                crcMode ? String.format("%,.0f CRC hatasi", total) : String.format("%.0f kopma", total)));
+        for (Cell cell : top) {
+            Label when = Ui.body(DAYS[cell.day()] + " " + String.format("%02d:00", cell.hour()));
+            Label value = Ui.muted(Fmt.count(Math.round(cell.value())) + " " + unit);
+            Label share = Ui.faint("toplamın " + Fmt.pct0(100.0 * cell.value() / sum) + "'i");
+            worst.getChildren().add(Ui.row(10, when, Ui.hSpacer(), value, share));
+        }
     }
 
-    /** 0..1 -> koyu zemin (#101a2c) ile acik mavi (#8ec6f5) arasi. */
-    private static String color(double t) {
-        int r = (int) (0x10 + t * (0x8e - 0x10));
-        int g = (int) (0x1a + t * (0xc6 - 0x1a));
-        int b = (int) (0x2c + t * (0xf5 - 0x2c));
-        return String.format("#%02x%02x%02x", r, g, b);
+    private static LocalDateTime at(long ts) {
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+    }
+
+    private record Cell(int day, int hour, double value) {
+    }
+
+    private static List<Cell> topCells(double[][] matrix, int limit) {
+        List<Cell> cells = new ArrayList<>();
+        for (int d = 0; d < 7; d++) {
+            for (int h = 0; h < 24; h++) {
+                if (matrix[d][h] > 0) cells.add(new Cell(d, h, matrix[d][h]));
+            }
+        }
+        cells.sort(Comparator.comparingDouble(Cell::value).reversed());
+        return cells.subList(0, Math.min(limit, cells.size()));
     }
 }

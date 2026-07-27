@@ -53,7 +53,7 @@ public class AlertEngine {
         if (wasDown) {
             long durSec = downSince > 0 ? (s.ts() - downSince) / 1000 : 0;
             emit(LineEvent.Type.LINK_UP,
-                    "Hat geri geldi (" + fmtDur(durSec) + " kesinti). Sync: "
+                    "Hat geri geldi (" + fmtDur(durSec) + " kesinti). Senkron: "
                             + s.syncDown() / 1000.0 + "/" + s.syncUp() / 1000.0 + " Mbps",
                     durSec, false, true);
             wasDown = false;
@@ -65,7 +65,7 @@ public class AlertEngine {
             long delta = s.crcDown() - last.crcDown();
             if (delta >= settings.crcDeltaThreshold()) {
                 emit(LineEvent.Type.CRC_BURST,
-                        "Son " + (s.ts() - last.ts()) / 1000 + " sn'de " + delta + " CRC hatasi. "
+                        "Son " + (s.ts() - last.ts()) / 1000 + " sn'de " + delta + " CRC hatası. "
                                 + "SNR: " + s.snrDown() / 10.0 + " dB",
                         0, true, true);
             }
@@ -73,8 +73,8 @@ public class AlertEngine {
             // Retrain: sync hizi degisti (yeniden senkron olmus)
             if (s.syncDown() != last.syncDown() || s.syncUp() != last.syncUp()) {
                 emit(LineEvent.Type.RETRAIN,
-                        "Sync degisti: " + last.syncDown() + " -> " + s.syncDown() + " kbps (down), "
-                                + last.syncUp() + " -> " + s.syncUp() + " kbps (up)",
+                        "Senkron değişti: " + last.syncDown() + " → " + s.syncDown() + " kbps (aşağı), "
+                                + last.syncUp() + " → " + s.syncUp() + " kbps (yukarı)",
                         0, false, true);
             }
         }
@@ -83,7 +83,7 @@ public class AlertEngine {
         if (s.snrDown() / 10.0 < settings.snrThresholdDb()) {
             if (++lowSnrStreak == 3) {
                 emit(LineEvent.Type.LOW_SNR,
-                        "SNR margin " + s.snrDown() / 10.0 + " dB (esik: " + settings.snrThresholdDb() + " dB)",
+                        "SNR marjı " + s.snrDown() / 10.0 + " dB (eşik: " + settings.snrThresholdDb() + " dB)",
                         0, true, true);
             }
         } else {
@@ -95,9 +95,9 @@ public class AlertEngine {
 
     public synchronized void onError(CollectorException e) {
         switch (e.kind()) {
-            case UNREACHABLE -> markDown("Modeme ulasilamiyor (modem kapali/yeniden basliyor olabilir)");
+            case UNREACHABLE -> markDown("Modeme ulaşılamıyor (modem kapalı ya da yeniden başlıyor olabilir)");
             case AUTH_FAILED -> emit(LineEvent.Type.COLLECTOR_ERROR,
-                    "Modem sifresi hatali gorunuyor - Ayarlar'dan kontrol et", 0, true, true);
+                    "Modem şifresi hatalı görünüyor — Ayarlar'dan kontrol et", 0, true, true);
             case PROTOCOL -> emit(LineEvent.Type.COLLECTOR_ERROR, String.valueOf(e.getMessage()), 0, false, true);
         }
     }
@@ -111,12 +111,12 @@ public class AlertEngine {
             netDownSince = System.currentTimeMillis();
             if (!firstReading) {
                 emit(LineEvent.Type.NET_DOWN,
-                        "DSL senkron ama internete cikis yok — sorun buyuk ihtimalle saglayici tarafinda",
+                        "DSL senkron ama internete çıkış yok — sorun büyük ihtimalle sağlayıcı tarafında",
                         0, true, false);
             }
         } else if (!firstReading) {
             long durSec = netDownSince > 0 ? (System.currentTimeMillis() - netDownSince) / 1000 : 0;
-            emit(LineEvent.Type.NET_UP, "Internet erisimi geri geldi (" + fmtDur(durSec) + ")",
+            emit(LineEvent.Type.NET_UP, "İnternet erişimi geri geldi (" + fmtDur(durSec) + ")",
                     durSec, false, false);
             netDownSince = -1;
         }
@@ -154,7 +154,7 @@ public class AlertEngine {
                 prev = s;
             }
             if (upCount == 0) return "";
-            return String.format(" | Kopma oncesi 10 dk: SNR ort %.1f / min %.1f dB, +%d CRC",
+            return String.format(" | Kopma öncesi 10 dk: SNR ort. %.1f / en düşük %.1f dB, +%d CRC",
                     sumSnr / upCount, minSnr, crcDelta);
         } catch (Exception e) {
             return "";

@@ -1,22 +1,34 @@
 package com.emre.linewatch.ui;
 
+import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.collector.TpLinkCollector;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.config.StartupManager;
-import javafx.geometry.Insets;
+import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-/** Modem, ornekleme, esik, bildirim ve uygulama ayarlari. */
+/** Modem, esik, bildirim, gorunum ve uygulama ayarlari. */
 public class SettingsView extends ScrollPane {
+
+    private final Settings settings;
+    private final Runnable onSaved;
 
     private final TextField host = new TextField();
     private final PasswordField password = new PasswordField();
+    private final TextField passwordPlain = new TextField();
     private final TextField poll = new TextField();
     private final TextField crcThreshold = new TextField();
     private final TextField snrThreshold = new TextField();
@@ -25,10 +37,161 @@ public class SettingsView extends ScrollPane {
     private final CheckBox telegram = new CheckBox("Telegram bildirimi");
     private final TextField tgToken = new TextField();
     private final TextField tgChatId = new TextField();
-    private final CheckBox autoStart = new CheckBox("Bilgisayar acildiginda LineWatch otomatik baslasin");
-    private final Label status = new Label();
+    private final CheckBox autoStart = new CheckBox("Bilgisayar açıldığında LineWatch otomatik başlasın");
+    private final ComboBox<Theme.Mode> themeBox = new ComboBox<>();
+
+    private final Label testResult = Ui.faint("");
+    private final Label saveStatus = Ui.faint("");
+    private boolean passwordVisible;
 
     public SettingsView(Settings settings, Runnable onSaved) {
+        this.settings = settings;
+        this.onSaved = onSaved;
+
+        setFitToWidth(true);
+        setHbarPolicy(ScrollBarPolicy.NEVER);
+
+        load();
+
+        GridPane grid = new GridPane();
+        grid.setHgap(14);
+        grid.setVgap(14);
+        for (int i = 0; i < 2; i++) {
+            ColumnConstraints c = new ColumnConstraints();
+            c.setPercentWidth(50);
+            grid.getColumnConstraints().add(c);
+        }
+
+        add(grid, modemCard(), 0, 0);
+        add(grid, thresholdCard(), 1, 0);
+        add(grid, notificationCard(), 0, 1);
+        add(grid, appearanceCard(), 1, 1);
+
+        Button save = Ui.button("Kaydet ve uygula", null);
+        save.setOnAction(e -> save());
+        HBox actions = Ui.row(12, save, saveStatus);
+
+        VBox page = new VBox(16, grid, actions);
+        page.getStyleClass().add("page");
+        page.setMaxWidth(940);
+        setContent(page);
+    }
+
+    private static void add(GridPane grid, VBox card, int col, int row) {
+        card.setMaxWidth(Double.MAX_VALUE);
+        GridPane.setHgrow(card, Priority.ALWAYS);
+        grid.add(card, col, row);
+    }
+
+    // ---------- kartlar ----------
+
+    private VBox modemCard() {
+        host.setPromptText("http://192.168.1.1");
+        poll.setPromptText("15");
+
+        Button test = Ui.button("Bağlantıyı test et", Icons.plug(Icons.SM), "subtle");
+        test.setOnAction(e -> testConnection(test));
+
+        return Ui.card(12,
+                Ui.cardTitle("MODEM"),
+                field("Modem adresi", host),
+                field("Modem şifresi", passwordField()),
+                field("Örnekleme aralığı", withSuffix(poll, "saniye")),
+                Ui.row(10, test, testResult),
+                Ui.faint("Test, izleyicinin modem oturumunu tazeler; ölçüm bir turluk gecikebilir."));
+    }
+
+    private VBox thresholdCard() {
+        return Ui.card(12,
+                Ui.cardTitle("UYARI EŞİKLERİ"),
+                field("CRC artış eşiği", withSuffix(crcThreshold, "örnekleme başına")),
+                field("SNR alt sınırı", withSuffix(snrThreshold, "dB")),
+                field("Aynı bildirim için bekleme", withSuffix(cooldown, "dakika")),
+                Ui.faint("Eşik aşıldığında olay kaydedilir ve seçili bildirim kanalları tetiklenir."));
+    }
+
+    private VBox notificationCard() {
+        tgToken.setPromptText("BotFather'dan alınan token");
+        tgChatId.setPromptText("chat_id (@userinfobot ile öğrenilebilir)");
+        tgToken.disableProperty().bind(telegram.selectedProperty().not());
+        tgChatId.disableProperty().bind(telegram.selectedProperty().not());
+
+        return Ui.card(12,
+                Ui.cardTitle("BİLDİRİMLER"),
+                toast,
+                telegram,
+                field("Bot token", tgToken),
+                field("Chat id", tgChatId));
+    }
+
+    private VBox appearanceCard() {
+        themeBox.getItems().setAll(Theme.Mode.values());
+        themeBox.setValue(Theme.mode());
+        themeBox.setButtonCell(themeCell());
+        themeBox.setCellFactory(list -> themeCell());
+        themeBox.setOnAction(e -> {
+            Theme.Mode mode = themeBox.getValue();
+            if (mode != null) Theme.setMode(mode);
+        });
+
+        return Ui.card(12,
+                Ui.cardTitle("GÖRÜNÜM VE UYGULAMA"),
+                field("Tema", themeBox),
+                Ui.faint("\"Sistemle aynı\" seçiliyken Windows'un açık/koyu tercihi izlenir."),
+                autoStart);
+    }
+
+    private static javafx.scene.control.ListCell<Theme.Mode> themeCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Theme.Mode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.label);
+            }
+        };
+    }
+
+    // ---------- alan kaliplari ----------
+
+    private static VBox field(String label, Node control) {
+        Label key = Ui.faint(label);
+        if (control instanceof javafx.scene.layout.Region region) region.setMaxWidth(Double.MAX_VALUE);
+        VBox box = new VBox(5, key, control);
+        VBox.setVgrow(control, Priority.NEVER);
+        return box;
+    }
+
+    private static HBox withSuffix(TextField field, String suffix) {
+        field.setPrefColumnCount(6);
+        HBox box = Ui.row(8, field, Ui.faint(suffix));
+        HBox.setHgrow(field, Priority.ALWAYS);
+        return box;
+    }
+
+    /** Sifre alani + goster/gizle dugmesi; iki alan ayni metni paylasir. */
+    private HBox passwordField() {
+        passwordPlain.textProperty().bindBidirectional(password.textProperty());
+        passwordPlain.setVisible(false);
+        passwordPlain.setManaged(false);
+
+        StackPane stack = new StackPane(password, passwordPlain);
+        HBox.setHgrow(stack, Priority.ALWAYS);
+
+        Button toggle = Ui.iconButton(Icons.eye(Icons.SM), "Şifreyi göster", "button", "ghost");
+        toggle.setOnAction(e -> {
+            passwordVisible = !passwordVisible;
+            password.setVisible(!passwordVisible);
+            password.setManaged(!passwordVisible);
+            passwordPlain.setVisible(passwordVisible);
+            passwordPlain.setManaged(passwordVisible);
+            toggle.setGraphic(passwordVisible ? Icons.eyeOff(Icons.SM) : Icons.eye(Icons.SM));
+        });
+        return Ui.row(6, stack, toggle);
+    }
+
+    // ---------- islemler ----------
+
+    private void load() {
         host.setText(settings.modemHost());
         password.setText(settings.modemPassword());
         poll.setText(String.valueOf(settings.pollSeconds()));
@@ -39,88 +202,93 @@ public class SettingsView extends ScrollPane {
         telegram.setSelected(settings.telegramEnabled());
         tgToken.setText(settings.telegramToken());
         tgChatId.setText(settings.telegramChatId());
-        tgToken.setPromptText("BotFather'dan alinan token");
-        tgChatId.setPromptText("chat_id (@userinfobot ile ogrenilebilir)");
         autoStart.setSelected(StartupManager.isEnabled());
+    }
 
-        VBox root = new VBox(14,
-                section("MODEM", grid(
-                        row("Modem adresi", host),
-                        row("Modem sifresi", password),
-                        row("Ornekleme araligi (sn)", poll))),
-                section("UYARI ESIKLERI", grid(
-                        row("CRC artis esigi (ornekleme basina)", crcThreshold),
-                        row("SNR esigi (dB)", snrThreshold),
-                        row("Ayni bildirim icin bekleme (dk)", cooldown))),
-                section("BILDIRIMLER", new VBox(10, toast, telegram,
-                        grid(row("Telegram bot token", tgToken),
-                             row("Telegram chat id", tgChatId)))),
-                section("UYGULAMA", new VBox(10, autoStart)));
+    private void testConnection(Button trigger) {
+        trigger.setDisable(true);
+        testResult.getStyleClass().setAll("faint");
+        testResult.setText("bağlanılıyor…");
+        String hostValue = host.getText().trim();
+        String passValue = password.getText();
 
-        Button save = new Button("Kaydet ve Uygula");
-        save.setOnAction(e -> {
+        Thread worker = new Thread(() -> {
+            String message;
+            String style;
+            TpLinkCollector collector = null;
             try {
-                settings.modemHost(host.getText().trim());
-                settings.modemPassword(password.getText());
-                settings.pollSeconds(parseInt(poll.getText(), 15));
-                settings.crcDeltaThreshold(parseInt(crcThreshold.getText(), 50));
-                settings.snrThresholdDb(parseDouble(snrThreshold.getText(), 6.0));
-                settings.alertCooldownMinutes(parseInt(cooldown.getText(), 15));
-                settings.toastEnabled(toast.isSelected());
-                settings.telegramEnabled(telegram.isSelected());
-                settings.telegramToken(tgToken.getText().trim());
-                settings.telegramChatId(tgChatId.getText().trim());
-                settings.save();
-                StartupManager.setEnabled(autoStart.isSelected());
-                status.setText("Kaydedildi, izleme yeniden baslatildi."
-                        + (autoStart.isSelected() ? " Otomatik baslatma acik." : ""));
-                onSaved.run();
-            } catch (Exception ex) {
-                status.setText("Kaydedilemedi: " + ex.getMessage());
+                collector = new TpLinkCollector(hostValue, passValue);
+                LineSample sample = collector.collect();
+                message = "bağlantı başarılı · " + sample.modulation() + " · SNR "
+                        + Fmt.dec1(sample.snrDown() / 10.0) + " dB";
+                style = "ok";
+            } catch (Exception e) {
+                message = "başarısız: " + e.getMessage();
+                style = "err";
+            } finally {
+                if (collector != null) collector.close();
             }
-        });
-        status.getStyleClass().add("muted");
-
-        VBox page = new VBox(16, root, save, status);
-        page.setPadding(new Insets(16));
-        page.setMaxWidth(640);
-        setContent(page);
-        setFitToWidth(true);
+            String finalMessage = message;
+            String finalStyle = style;
+            Platform.runLater(() -> {
+                trigger.setDisable(false);
+                testResult.getStyleClass().setAll("faint");
+                testResult.setStyle("-fx-text-fill: " + ("ok".equals(finalStyle)
+                        ? hex(Theme.palette().good()) : hex(Theme.palette().bad())) + ";");
+                testResult.setText(finalMessage);
+            });
+        }, "settings-conn-test");
+        worker.setDaemon(true);
+        worker.start();
     }
 
-    private static VBox section(String title, javafx.scene.Node content) {
-        Label t = new Label(title);
-        t.getStyleClass().add("section-title");
-        VBox card = new VBox(12, t, content);
-        card.getStyleClass().add("card");
-        return card;
-    }
+    private void save() {
+        try {
+            settings.modemHost(host.getText().trim());
+            settings.modemPassword(password.getText());
+            settings.pollSeconds(parseInt(poll.getText(), 15));
+            settings.crcDeltaThreshold(parseInt(crcThreshold.getText(), 50));
+            settings.snrThresholdDb(parseDouble(snrThreshold.getText(), 6.0));
+            settings.alertCooldownMinutes(parseInt(cooldown.getText(), 15));
+            settings.toastEnabled(toast.isSelected());
+            settings.telegramEnabled(telegram.isSelected());
+            settings.telegramToken(tgToken.getText().trim());
+            settings.telegramChatId(tgChatId.getText().trim());
+            settings.theme(themeBox.getValue() == null ? "AUTO" : themeBox.getValue().name());
+            settings.save();
+            StartupManager.setEnabled(autoStart.isSelected());
 
-    private record Row(String label, javafx.scene.Node field) {}
-
-    private static Row row(String label, javafx.scene.Node field) {
-        return new Row(label, field);
-    }
-
-    private static GridPane grid(Row... rows) {
-        GridPane g = new GridPane();
-        g.setHgap(12);
-        g.setVgap(10);
-        for (int i = 0; i < rows.length; i++) {
-            Label l = new Label(rows[i].label());
-            l.getStyleClass().add("muted");
-            g.add(l, 0, i);
-            g.add(rows[i].field(), 1, i);
-            if (rows[i].field() instanceof TextField tf) tf.setPrefWidth(280);
+            saveStatus.setStyle("-fx-text-fill: " + hex(Theme.palette().good()) + ";");
+            saveStatus.setText("Kaydedildi, izleme yeniden başlatıldı."
+                    + (autoStart.isSelected() ? " Otomatik başlatma açık." : ""));
+            Anim.highlight(saveStatus);
+            onSaved.run();
+        } catch (Exception ex) {
+            saveStatus.setStyle("-fx-text-fill: " + hex(Theme.palette().bad()) + ";");
+            saveStatus.setText("Kaydedilemedi: " + ex.getMessage());
         }
-        return g;
+    }
+
+    private static String hex(javafx.scene.paint.Color c) {
+        return String.format("#%02x%02x%02x",
+                (int) Math.round(c.getRed() * 255),
+                (int) Math.round(c.getGreen() * 255),
+                (int) Math.round(c.getBlue() * 255));
     }
 
     private static int parseInt(String s, int def) {
-        try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return def; }
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return def;
+        }
     }
 
     private static double parseDouble(String s, double def) {
-        try { return Double.parseDouble(s.trim().replace(',', '.')); } catch (NumberFormatException e) { return def; }
+        try {
+            return Double.parseDouble(s.trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            return def;
+        }
     }
 }

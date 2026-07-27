@@ -57,21 +57,54 @@ public class EventRepository {
         return out;
     }
 
+    /** Verilen tipteki son olayin zamani; hic yoksa -1. Kesintisiz sure hesabi icin. */
+    public synchronized long lastTs(LineEvent.Type type) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT MAX(ts) FROM events WHERE type = ?")) {
+            ps.setString(1, type.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return -1;
+                long ts = rs.getLong(1);
+                return rs.wasNull() ? -1 : ts;
+            }
+        }
+    }
+
+    /** Zaman araligindaki olaylar (grafik isaretleri icin), eskiden yeniye. */
+    public synchronized List<LineEvent> findRange(long from, long to) throws SQLException {
+        List<LineEvent> out = new ArrayList<>();
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT id,ts,type,detail,duration_sec FROM events "
+                        + "WHERE ts BETWEEN ? AND ? ORDER BY ts")) {
+            ps.setLong(1, from);
+            ps.setLong(2, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) out.add(read(rs));
+            }
+        }
+        return out;
+    }
+
     public synchronized List<LineEvent> findRecent(int limit) throws SQLException {
         List<LineEvent> out = new ArrayList<>();
         try (PreparedStatement ps = db.conn().prepareStatement(
                 "SELECT id,ts,type,detail,duration_sec FROM events ORDER BY ts DESC LIMIT ?")) {
             ps.setInt(1, limit);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    LineEvent.Type type;
-                    try { type = LineEvent.Type.valueOf(rs.getString(3)); }
-                    catch (IllegalArgumentException e) { type = LineEvent.Type.COLLECTOR_ERROR; }
-                    out.add(new LineEvent(rs.getLong(1), rs.getLong(2), type,
-                            rs.getString(4), rs.getLong(5)));
-                }
+                while (rs.next()) out.add(read(rs));
             }
         }
         return out;
+    }
+
+    /** id, ts, type, detail, duration_sec sirasindaki satiri okur. */
+    private static LineEvent read(ResultSet rs) throws SQLException {
+        LineEvent.Type type;
+        try {
+            type = LineEvent.Type.valueOf(rs.getString(3));
+        } catch (IllegalArgumentException e) {
+            type = LineEvent.Type.COLLECTOR_ERROR;
+        }
+        return new LineEvent(rs.getLong(1), rs.getLong(2), type, rs.getString(4), rs.getLong(5));
     }
 }

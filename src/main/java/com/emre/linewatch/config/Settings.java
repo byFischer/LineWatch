@@ -69,6 +69,10 @@ public class Settings {
 
     public int retentionDays() { return getInt("db.retentionDays", 30); }
 
+    /** Tema tercihi: AUTO / DARK / LIGHT (bkz. ui.Theme.Mode). */
+    public String theme() { return p.getProperty("ui.theme", "AUTO"); }
+    public void theme(String v) { p.setProperty("ui.theme", v); }
+
     private int getInt(String k, int def) {
         try { return Integer.parseInt(p.getProperty(k, String.valueOf(def))); }
         catch (NumberFormatException e) { return def; }

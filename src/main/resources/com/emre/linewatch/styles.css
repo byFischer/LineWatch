@@ -1,183 +1,451 @@
-/* LineWatch — koyu "hat operasyon konsolu" temasi
-   zemin #0b1220 / kart #121c2e / cizgi #22304a / metin #d7e2f0
-   seri renkleri (dark-surface dogrulanmis): down #3d85cc, up #b8801f */
+/* ==========================================================================
+   LineWatch — sakin panel temasi
+   Koyu varsayilan, .theme-light sinifiyla acik temaya doner.
+   Buradaki -lw-* renklerinin Java karsiligi ui/Theme.java icindeki Palette'te;
+   birini degistirirken digerini de guncelle (Canvas CSS okuyamiyor).
+   ========================================================================== */
 
 .root {
-    -fx-background-color: #0b1220;
     -fx-font-family: "Segoe UI";
     -fx-font-size: 13px;
-    -fx-text-fill: #d7e2f0;
-    -lw-card: #121c2e;
-    -lw-line: #22304a;
-    -lw-ink: #d7e2f0;
-    -lw-muted: #7b8ca6;
-    -lw-accent: #3d85cc;
-    -lw-up: #3fb950;
-    -lw-down: #f85149;
-    -lw-amber: #b8801f;
+
+    -lw-bg:           #0e1013;
+    -lw-surface:      #16191f;
+    -lw-surface-alt:  #1c2027;
+    -lw-hover:        #20242c;
+    -lw-border:       #24282f;
+    -lw-border-soft:  #1e222a;
+
+    -lw-text:         #e8eaed;
+    -lw-text-muted:   #9aa2ae;
+    -lw-text-faint:   #6b7280;
+
+    -lw-accent:       #5c7cfa;
+    -lw-accent-hover: #7590ff;
+    -lw-accent-soft:  #1a2340;
+    -lw-on-accent:    #ffffff;
+
+    -lw-good:         #3ecf8e;
+    -lw-warn:         #e8a33d;
+    -lw-bad:          #e5484d;
+    -lw-good-soft:    #10291f;
+    -lw-warn-soft:    #2c2413;
+    -lw-bad-soft:     #2e1518;
+
+    -fx-background-color: -lw-bg;
 }
 
-.label { -fx-text-fill: -lw-ink; }
+.root.theme-light {
+    -lw-bg:           #f7f8fa;
+    -lw-surface:      #ffffff;
+    -lw-surface-alt:  #f0f2f5;
+    -lw-hover:        #eaedf1;
+    -lw-border:       #e3e6ea;
+    -lw-border-soft:  #eceef2;
 
-/* ---------- ust baslik cubugu ---------- */
-.app-header {
-    -fx-background-color: linear-gradient(to right, #0e1830, #0b1220 70%);
-    -fx-padding: 14 20 14 20;
-    -fx-border-color: transparent transparent -lw-line transparent;
-    -fx-border-width: 0 0 1 0;
-}
-.app-title {
-    -fx-font-family: "Consolas";
-    -fx-font-size: 19px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -lw-ink;
-}
-.app-title .accent { -fx-text-fill: -lw-accent; }
-.app-subtitle { -fx-text-fill: -lw-muted; -fx-font-size: 11px; }
+    -lw-text:         #16191f;
+    -lw-text-muted:   #5a6472;
+    -lw-text-faint:   #858e9c;
 
-.status-pill {
-    -fx-background-radius: 20;
-    -fx-padding: 5 14 5 14;
-    -fx-font-family: "Consolas";
-    -fx-font-weight: bold;
-    -fx-font-size: 12px;
-}
-.status-pill-up { -fx-background-color: #12291a; -fx-text-fill: -lw-up; -fx-border-color: #1f4d2c; -fx-border-radius: 20; }
-.status-pill-down { -fx-background-color: #2d1416; -fx-text-fill: -lw-down; -fx-border-color: #5c2326; -fx-border-radius: 20; }
-.status-pill-unknown { -fx-background-color: #1a2333; -fx-text-fill: -lw-muted; -fx-border-color: -lw-line; -fx-border-radius: 20; }
+    -lw-accent:       #4263eb;
+    -lw-accent-hover: #3350d8;
+    -lw-accent-soft:  #e8edfd;
+    -lw-on-accent:    #ffffff;
 
-/* ---------- sekmeler ---------- */
-.tab-pane { -fx-tab-min-height: 34; -fx-tab-max-height: 34; }
-.tab-pane .tab-header-area { -fx-padding: 6 12 0 12; }
-.tab-pane .tab-header-background { -fx-background-color: #0b1220; }
-.tab-pane .tab {
-    -fx-background-color: transparent;
-    -fx-background-radius: 0;
-    -fx-padding: 6 16 6 16;
-    -fx-border-color: transparent transparent transparent transparent;
-    -fx-border-width: 0 0 2 0;
+    -lw-good:         #12915c;
+    -lw-warn:         #b7791f;
+    -lw-bad:          #d33741;
+    -lw-good-soft:    #e2f5ec;
+    -lw-warn-soft:    #fbf1de;
+    -lw-bad-soft:     #fcebec;
 }
-.tab-pane .tab:selected { -fx-border-color: transparent transparent -lw-accent transparent; }
-.tab-pane .tab .tab-label { -fx-text-fill: -lw-muted; -fx-font-size: 13px; }
-.tab-pane .tab:selected .tab-label { -fx-text-fill: -lw-ink; -fx-font-weight: bold; }
-.tab-pane .tab:hover .tab-label { -fx-text-fill: -lw-ink; }
-.tab-pane .tab-content-area { -fx-background-color: #0b1220; }
 
-/* ---------- kartlar / stat kutulari ---------- */
-.card {
-    -fx-background-color: -lw-card;
-    -fx-background-radius: 12;
-    -fx-border-color: -lw-line;
-    -fx-border-radius: 12;
-    -fx-padding: 14 18 14 18;
-}
-.card-title {
-    -fx-text-fill: -lw-muted;
+.label, .text { -fx-text-fill: -lw-text; }
+
+/* ---------- tipografi olcegi ---------- */
+.display     { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 34px; -fx-text-fill: -lw-text; }
+.h1          { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 21px; -fx-text-fill: -lw-text; }
+.h2          { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 16px; -fx-text-fill: -lw-text; }
+.body        { -fx-font-size: 13px;   -fx-text-fill: -lw-text; }
+.muted       { -fx-font-size: 12.5px; -fx-text-fill: -lw-text-muted; }
+.faint       { -fx-font-size: 12px;   -fx-text-fill: -lw-text-faint; }
+.mono        { -fx-font-family: "Consolas"; -fx-font-size: 12px; -fx-text-fill: -lw-text-muted; }
+
+/* bolum basliklari: kucuk, sakin, buyuk harf metin Java tarafinda veriliyor */
+.eyebrow {
+    -fx-font-family: "Segoe UI Semibold";
     -fx-font-size: 11px;
-    -fx-font-weight: bold;
+    -fx-text-fill: -lw-text-faint;
 }
-.card-value {
-    -fx-font-family: "Consolas";
-    -fx-font-size: 22px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -lw-ink;
+
+/* ---------- ikonlar ----------
+   Ikonlar cizgi tabanli (Icons.java, 24x24 path). Dolgu yok, renk stroke'tan gelir. */
+.glyph {
+    -fx-fill: transparent;
+    -fx-stroke: -lw-text-muted;
+    -fx-stroke-width: 1.7;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
 }
-.card-sub { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-family: "Consolas"; }
-.card-value-warn { -fx-text-fill: #e3b341; }
-.card-value-bad { -fx-text-fill: -lw-down; }
-.card-value-good { -fx-text-fill: -lw-up; }
+.glyph.good { -fx-stroke: -lw-good; }
+.glyph.warn { -fx-stroke: -lw-warn; }
+.glyph.bad  { -fx-stroke: -lw-bad; }
+.glyph.info { -fx-stroke: -lw-accent; }
 
-.hero {
-    -fx-background-color: linear-gradient(to bottom right, #14213a, #101a2c);
-    -fx-background-radius: 14;
-    -fx-border-color: -lw-line;
-    -fx-border-radius: 14;
-    -fx-padding: 18 22 18 22;
+/* ---------- pencere kabugu ---------- */
+/* Cercevesiz pencere: kenari gorunur kilan 1px kenarlik. Kose yuvarlatmasi yok —
+   o sahnenin seffaf olmasini gerektirir, Windows 10'da getirisi yok. */
+.app-root {
+    -fx-background-color: -lw-bg;
+    -fx-border-color: -lw-border;
+    -fx-border-width: 1;
 }
-.hero-status { -fx-font-family: "Consolas"; -fx-font-size: 30px; -fx-font-weight: bold; }
-.hero-status-up { -fx-text-fill: -lw-up; }
-.hero-status-down { -fx-text-fill: -lw-down; }
-.hero-sub { -fx-text-fill: -lw-muted; -fx-font-size: 12px; }
+.app-root.maximized { -fx-border-width: 0; }
 
-.muted { -fx-text-fill: -lw-muted; }
-.section-title { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-weight: bold; }
-
-/* ---------- grafikler ---------- */
-.chart { -fx-padding: 6; -fx-background-color: transparent; }
-.chart-title { -fx-text-fill: -lw-ink; -fx-font-size: 13px; -fx-font-weight: bold; }
-.chart-content { -fx-padding: 6; }
-.chart-plot-background { -fx-background-color: transparent; }
-.chart-vertical-grid-lines { -fx-stroke: #16223a; }
-.chart-horizontal-grid-lines { -fx-stroke: #16223a; }
-.chart-alternative-row-fill { -fx-fill: transparent; }
-.chart-vertical-zero-line, .chart-horizontal-zero-line { -fx-stroke: -lw-line; }
-.axis { -fx-tick-label-fill: -lw-muted; -fx-tick-label-font-size: 10px; }
-.axis-label { -fx-text-fill: -lw-muted; }
-.axis:bottom { -fx-border-color: -lw-line transparent transparent transparent; }
-.axis:left { -fx-border-color: transparent -lw-line transparent transparent; }
-.chart-legend { -fx-background-color: transparent; }
-.chart-legend-item { -fx-text-fill: -lw-muted; }
-
-.chart-series-line { -fx-stroke-width: 2px; }
-.default-color0.chart-series-line { -fx-stroke: #3d85cc; }
-.default-color1.chart-series-line { -fx-stroke: #b8801f; }
-.default-color0.chart-line-symbol { -fx-background-color: #3d85cc, #0b1220; }
-.default-color1.chart-line-symbol { -fx-background-color: #b8801f, #0b1220; }
-
-/* ---------- tablo ---------- */
-.table-view {
-    -fx-background-color: -lw-card;
-    -fx-background-radius: 12;
-    -fx-border-color: -lw-line;
-    -fx-border-radius: 12;
-    -fx-table-cell-border-color: transparent;
+.title-bar {
+    -fx-padding: 0 6 0 16;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
 }
-.table-view .column-header-background { -fx-background-color: transparent; -fx-padding: 4 0 4 0; }
-.table-view .column-header { -fx-background-color: transparent; -fx-border-color: transparent transparent -lw-line transparent; }
-.table-view .column-header .label { -fx-text-fill: -lw-muted; -fx-font-size: 11px; -fx-font-weight: bold; }
-.table-view .filler { -fx-background-color: transparent; }
-.table-row-cell { -fx-background-color: transparent; -fx-border-color: transparent; -fx-cell-size: 32; }
-.table-row-cell:odd { -fx-background-color: #0f1828; }
-.table-row-cell:selected { -fx-background-color: #1c2c48; }
-.table-row-cell .text { -fx-fill: -lw-ink; }
-.table-view .table-cell { -fx-text-fill: -lw-ink; -fx-border-color: transparent; }
+.title-bar-text {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -lw-text-muted;
+}
+.win-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-min-width: 40; -fx-pref-width: 40;
+    -fx-min-height: 30; -fx-pref-height: 30;
+    -fx-padding: 0;
+    -fx-cursor: default;
+}
+.win-button:hover { -fx-background-color: -lw-hover; }
+.win-button .glyph { -fx-stroke: -lw-text-muted; -fx-stroke-width: 1.5; }
+.win-button:hover .glyph { -fx-stroke: -lw-text; }
+.win-button.close:hover { -fx-background-color: #e5484d; }
+.win-button.close:hover .glyph { -fx-stroke: white; }
 
-/* ---------- form / kontrol ---------- */
-.text-field, .password-field, .combo-box, .check-box .box {
-    -fx-background-color: #0e1727;
+/* ---------- sol menu ---------- */
+.nav-rail {
+    -fx-background-color: -lw-bg;
+    -fx-padding: 4 10 14 10;
+    -fx-min-width: 194;
+    -fx-pref-width: 194;
+    -fx-border-color: transparent -lw-border-soft transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+.nav-brand {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 15px;
+    -fx-text-fill: -lw-text;
+}
+.nav-brand-sub { -fx-font-size: 11px; -fx-text-fill: -lw-text-faint; }
+
+.nav-item {
+    -fx-background-color: transparent;
     -fx-background-radius: 8;
-    -fx-border-color: -lw-line;
-    -fx-border-radius: 8;
-    -fx-text-fill: -lw-ink;
-    -fx-prompt-text-fill: #55647d;
-}
-.text-field:focused, .password-field:focused, .combo-box:focused { -fx-border-color: -lw-accent; }
-.combo-box .list-cell { -fx-text-fill: -lw-ink; -fx-background-color: transparent; }
-.combo-box-popup .list-view { -fx-background-color: -lw-card; -fx-border-color: -lw-line; }
-.combo-box-popup .list-cell { -fx-background-color: -lw-card; -fx-text-fill: -lw-ink; }
-.combo-box-popup .list-cell:hover { -fx-background-color: #1c2c48; }
-.combo-box .arrow { -fx-background-color: -lw-muted; }
-
-.check-box { -fx-text-fill: -lw-ink; }
-.check-box .box { -fx-background-radius: 4; -fx-border-radius: 4; -fx-padding: 3; }
-.check-box:selected .mark { -fx-background-color: -lw-accent; }
-
-.button {
-    -fx-background-color: -lw-accent;
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
-    -fx-background-radius: 8;
-    -fx-padding: 8 18 8 18;
+    -fx-padding: 9 12 9 12;
     -fx-cursor: hand;
 }
-.button:hover { -fx-background-color: #4a97e0; }
-.button.secondary { -fx-background-color: #1a2740; -fx-text-fill: -lw-ink; -fx-border-color: -lw-line; -fx-border-radius: 8; }
-.button.secondary:hover { -fx-background-color: #223354; }
+.nav-item:hover { -fx-background-color: -lw-hover; }
+.nav-item .nav-label { -fx-text-fill: -lw-text-muted; -fx-font-size: 13px; }
+.nav-item .glyph { -fx-stroke: -lw-text-faint; }
+.nav-item:hover .nav-label { -fx-text-fill: -lw-text; }
+.nav-item:hover .glyph { -fx-stroke: -lw-text-muted; }
 
-.separator .line { -fx-border-color: -lw-line transparent transparent transparent; }
+.nav-item.active { -fx-background-color: -lw-accent-soft; }
+.nav-item.active .nav-label { -fx-text-fill: -lw-accent; -fx-font-family: "Segoe UI Semibold"; }
+.nav-item.active .glyph { -fx-stroke: -lw-accent; }
 
-.scroll-pane, .scroll-pane .viewport { -fx-background-color: transparent; }
-.scroll-bar { -fx-background-color: transparent; }
-.scroll-bar .thumb { -fx-background-color: #26354f; -fx-background-radius: 6; }
-.scroll-bar .track { -fx-background-color: transparent; }
-.scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-background-color: transparent; }
+.nav-badge {
+    -fx-background-color: -lw-bad;
+    -fx-background-radius: 999;
+    -fx-text-fill: white;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 10.5px;
+    -fx-padding: 1 7 1 7;
+}
+
+/* ---------- icerik alani ---------- */
+.content-area { -fx-background-color: -lw-bg; }
+.page { -fx-padding: 22 26 26 26; }
+.page-title { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 19px; -fx-text-fill: -lw-text; }
+
+/* ---------- kartlar ---------- */
+.card {
+    -fx-background-color: -lw-surface;
+    -fx-background-radius: 12;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-padding: 16 18 16 18;
+}
+.theme-light .card { -fx-effect: dropshadow(gaussian, rgba(16, 24, 40, 0.05), 8, 0, 0, 2); }
+
+.card-hero {
+    -fx-background-color: -lw-surface;
+    -fx-background-radius: 14;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-padding: 22 24 22 24;
+}
+.theme-light .card-hero { -fx-effect: dropshadow(gaussian, rgba(16, 24, 40, 0.06), 12, 0, 0, 3); }
+
+.card-title { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 11px; -fx-text-fill: -lw-text-faint; }
+
+/* ---------- metrik kartlari ---------- */
+.metric-value {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 25px;
+    -fx-text-fill: -lw-text;
+}
+.metric-unit  { -fx-font-size: 12px; -fx-text-fill: -lw-text-faint; }
+.metric-sub   { -fx-font-size: 11.5px; -fx-text-fill: -lw-text-faint; }
+
+.metric-value.good { -fx-text-fill: -lw-good; }
+.metric-value.warn { -fx-text-fill: -lw-warn; }
+.metric-value.bad  { -fx-text-fill: -lw-bad; }
+
+.metric-delta {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 11.5px;
+    -fx-background-radius: 999;
+    -fx-padding: 2 8 2 8;
+    -fx-text-fill: -lw-text-faint;
+    -fx-background-color: -lw-surface-alt;
+}
+.metric-delta.up   { -fx-text-fill: -lw-good; -fx-background-color: -lw-good-soft; }
+.metric-delta.down { -fx-text-fill: -lw-bad;  -fx-background-color: -lw-bad-soft; }
+.metric-delta.warn { -fx-text-fill: -lw-warn; -fx-background-color: -lw-warn-soft; }
+
+/* ---------- saglik karti ---------- */
+.health-headline { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 22px; -fx-text-fill: -lw-text; }
+.health-detail   { -fx-font-size: 13px; -fx-text-fill: -lw-text-muted; }
+.health-grade {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 40px;
+}
+.health-score { -fx-font-size: 12px; -fx-text-fill: -lw-text-faint; }
+
+/* ---------- durum rozeti ---------- */
+.status-chip {
+    -fx-background-radius: 999;
+    -fx-padding: 4 12 4 12;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 12px;
+    -fx-background-color: -lw-surface-alt;
+    -fx-text-fill: -lw-text-muted;
+}
+.status-chip.up      { -fx-background-color: -lw-good-soft; -fx-text-fill: -lw-good; }
+.status-chip.down    { -fx-background-color: -lw-bad-soft;  -fx-text-fill: -lw-bad; }
+.status-chip.warn    { -fx-background-color: -lw-warn-soft; -fx-text-fill: -lw-warn; }
+
+.status-dot          { -fx-fill: -lw-text-faint; }
+.status-dot.up       { -fx-fill: -lw-good; }
+.status-dot.down     { -fx-fill: -lw-bad; }
+.status-dot.warn     { -fx-fill: -lw-warn; }
+.status-dot.unknown  { -fx-fill: -lw-text-faint; }
+
+/* ---------- butonlar ---------- */
+.button {
+    -fx-background-color: -lw-accent;
+    -fx-text-fill: -lw-on-accent;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 13px;
+    -fx-background-radius: 8;
+    -fx-padding: 8 16 8 16;
+    -fx-cursor: hand;
+}
+.button:hover { -fx-background-color: -lw-accent-hover; }
+.button:focused { -fx-border-color: -lw-accent; -fx-border-radius: 8; -fx-border-width: 1; }
+
+.button.subtle {
+    -fx-background-color: -lw-surface-alt;
+    -fx-text-fill: -lw-text;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+}
+.button.subtle:hover { -fx-background-color: -lw-hover; }
+
+.button.ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -lw-text-muted;
+    -fx-font-family: "Segoe UI";
+    -fx-border-width: 0;
+}
+.button.ghost:hover { -fx-background-color: -lw-hover; -fx-text-fill: -lw-text; }
+
+.button.danger { -fx-background-color: -lw-bad; -fx-text-fill: white; }
+.button.danger:hover { -fx-background-color: derive(#e5484d, -12%); }
+
+.button:disabled { -fx-opacity: 0.45; -fx-cursor: default; }
+.button .glyph { -fx-stroke: -lw-on-accent; }
+.button.subtle .glyph, .button.ghost .glyph { -fx-stroke: -lw-text-muted; }
+.button.subtle:hover .glyph, .button.ghost:hover .glyph { -fx-stroke: -lw-text; }
+
+/* ---------- segment kontrolu (aralik secici) ---------- */
+.segmented {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 9;
+    -fx-padding: 3;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 9;
+    -fx-border-width: 1;
+}
+.segment {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-text-fill: -lw-text-muted;
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 12.5px;
+    -fx-padding: 5 13 5 13;
+    -fx-cursor: hand;
+}
+.segment:hover { -fx-text-fill: -lw-text; }
+.segment.active {
+    -fx-background-color: -lw-surface;
+    -fx-text-fill: -lw-text;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 4, 0, 0, 1);
+}
+
+/* ---------- form kontrolleri ---------- */
+.text-field, .password-field {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 8;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -lw-text;
+    -fx-prompt-text-fill: -lw-text-faint;
+    -fx-padding: 8 11 8 11;
+    -fx-highlight-fill: -lw-accent-soft;
+}
+.text-field:focused, .password-field:focused {
+    -fx-border-color: -lw-accent;
+    -fx-background-color: -lw-surface;
+}
+.text-field.invalid, .password-field.invalid { -fx-border-color: -lw-bad; }
+
+.combo-box {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 8;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 2 4 2 4;
+    -fx-cursor: hand;
+}
+.combo-box:hover { -fx-background-color: -lw-hover; }
+.combo-box:focused { -fx-border-color: -lw-accent; }
+.combo-box .list-cell { -fx-text-fill: -lw-text; -fx-background-color: transparent; -fx-padding: 5 6 5 6; }
+.combo-box .arrow { -fx-background-color: -lw-text-muted; }
+.combo-box-popup .list-view {
+    -fx-background-color: -lw-surface;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 14, 0, 0, 4);
+}
+.combo-box-popup .list-cell { -fx-background-color: transparent; -fx-text-fill: -lw-text; -fx-padding: 7 12 7 12; }
+.combo-box-popup .list-cell:filled:hover { -fx-background-color: -lw-hover; }
+.combo-box-popup .list-cell:filled:selected { -fx-background-color: -lw-accent-soft; -fx-text-fill: -lw-accent; }
+
+.check-box { -fx-text-fill: -lw-text; -fx-cursor: hand; -fx-font-size: 13px; }
+.check-box .box {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 5;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 5;
+    -fx-border-width: 1;
+    -fx-padding: 3;
+}
+.check-box:hover .box { -fx-border-color: -lw-text-faint; }
+.check-box:selected .box { -fx-background-color: -lw-accent; -fx-border-color: -lw-accent; }
+.check-box:selected .mark { -fx-background-color: white; }
+
+/* ---------- kaydirma ---------- */
+.scroll-pane { -fx-background-color: transparent; -fx-padding: 0; }
+.scroll-pane > .viewport { -fx-background-color: transparent; }
+.scroll-pane:focused { -fx-background-insets: 0; }
+.scroll-bar { -fx-background-color: transparent; -fx-padding: 2; }
+.scroll-bar:vertical { -fx-pref-width: 10; }
+.scroll-bar:horizontal { -fx-pref-height: 10; }
+.scroll-bar .track { -fx-background-color: transparent; -fx-border-color: transparent; }
+.scroll-bar .thumb { -fx-background-color: -lw-border; -fx-background-radius: 6; }
+.scroll-bar .thumb:hover { -fx-background-color: -lw-text-faint; }
+.scroll-bar .increment-button, .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-shape: " ";
+}
+
+/* ---------- olay zaman cizelgesi ---------- */
+.timeline-list { -fx-background-color: transparent; }
+.timeline-list .list-cell { -fx-background-color: transparent; -fx-padding: 0; }
+
+.timeline-day {
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-font-size: 11px;
+    -fx-text-fill: -lw-text-faint;
+    -fx-padding: 14 0 6 0;
+}
+.timeline-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 9;
+    -fx-padding: 9 12 9 12;
+    -fx-cursor: hand;
+}
+.timeline-item:hover { -fx-background-color: -lw-surface-alt; }
+.timeline-item.selected { -fx-background-color: -lw-accent-soft; }
+.timeline-time { -fx-font-family: "Consolas"; -fx-font-size: 12px; -fx-text-fill: -lw-text-faint; }
+.timeline-title { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 13px; -fx-text-fill: -lw-text; }
+.timeline-detail { -fx-font-size: 12px; -fx-text-fill: -lw-text-muted; }
+.timeline-rail { -fx-stroke: -lw-border; -fx-stroke-width: 1; }
+
+.duration-badge {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 999;
+    -fx-padding: 1 8 1 8;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 11px;
+    -fx-text-fill: -lw-text-muted;
+}
+
+/* ---------- bos durum ---------- */
+.empty-title { -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 14px; -fx-text-fill: -lw-text-muted; }
+.empty-detail { -fx-font-size: 12.5px; -fx-text-fill: -lw-text-faint; }
+
+/* ---------- ipucu balonu ---------- */
+.tooltip {
+    -fx-background-color: -lw-surface-alt;
+    -fx-background-radius: 8;
+    -fx-border-color: -lw-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -lw-text;
+    -fx-font-size: 12px;
+    -fx-padding: 7 10 7 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 12, 0, 0, 3);
+}
+
+/* ---------- ayirici ---------- */
+.separator .line {
+    -fx-border-color: -lw-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* ---------- diyalog ---------- */
+.dialog-pane {
+    -fx-background-color: -lw-surface;
+    -fx-border-color: -lw-border;
+    -fx-border-width: 1;
+}
+.dialog-pane .header-panel { -fx-background-color: -lw-surface-alt; }
+.dialog-pane .header-panel .label { -fx-text-fill: -lw-text; -fx-font-family: "Segoe UI Semibold"; -fx-font-size: 15px; }
+.dialog-pane .content.label { -fx-text-fill: -lw-text-muted; -fx-font-size: 13px; }
+.dialog-pane .button-bar .button { -fx-background-color: -lw-surface-alt; -fx-text-fill: -lw-text; }
+.dialog-pane .button-bar .button:default { -fx-background-color: -lw-accent; -fx-text-fill: -lw-on-accent; }
