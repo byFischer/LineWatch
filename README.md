@@ -11,8 +11,6 @@ hızı, zayıflama ve hata sayaçlarını okur; SQLite'a kaydeder; grafiklerle g
 hat koptuğunda / sinyal düştüğünde / hata sayacı patladığında Windows bildirimi ve
 Telegram mesajı gönderir. Sistem tepsisinde arka planda çalışır.
 
-Amacı tek bir soruya cevap vermek: *"İnternetim neden bozuk — sorun bende mi, hatta
-mı, ne zaman bozuluyor?"* — ve servis sağlayıcıyla konuşurken elinde veri olsun diye.
 
 ![LineWatch panosu](docs/img/Pano.jpg)
 
