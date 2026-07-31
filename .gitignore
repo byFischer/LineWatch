@@ -1,6 +1,11 @@
 # Build ciktilari
 target/
 dist/
+staging/
+RELEASE_NOTES.md
+SHA256SUMS.txt
+LineWatch-*.zip
+LineWatch-*.jar
 
 # Yerel ayar / veri (modem sifresi, telegram token burada olur - asla commit'leme)
 config.properties
@@ -11,6 +16,9 @@ config.properties
 
 # Loglar
 *.log
+
+# Yerel dokuman (push'lanmiyor)
+docs/proje-rehberi.md
 
 # IDE
 .idea/

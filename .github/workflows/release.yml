@@ -1,0 +1,128 @@
+name: Release
+
+# v ile başlayan bir tag atıldığında (örn. "git tag v0.1.0 && git push origin v0.1.0")
+# Windows uygulamasını derler, zipler ve GitHub Release'e yükler.
+# Elle çalıştırmak için: Actions -> Release -> Run workflow -> sürüm gir.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Sürüm numarası (örn. 0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows paketi
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 25 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Sürümü belirle
+        id: ver
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $full = '${{ github.event.inputs.version }}'.Trim().TrimStart('v')
+          } else {
+            $full = '${{ github.ref_name }}' -replace '^v', ''
+          }
+          # jpackage --app-version yalnızca sayısal sürüm kabul eder (1.2.3);
+          # "0.2.0-beta1" gibi bir tag'de son ek atılır.
+          $app = ($full -split '-')[0]
+          if ($app -notmatch '^\d+(\.\d+){0,2}$') { $app = '1.0.0' }
+          "full=$full" | Out-File $env:GITHUB_OUTPUT -Append
+          "app=$app"   | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Host "Surum: $full (app-version: $app)"
+
+      - name: Derle ve test et
+        run: mvn -B --no-transfer-progress verify
+
+      - name: jpackage app-image üret
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' | Select-Object -First 1
+          if (-not $jar) { throw 'Dagitim jar bulunamadi (mvn package basarisiz olmus olabilir)' }
+
+          # Sadece çalıştırılabilir jar imaja girsin; "target" klasörünün tamamı
+          # verilirse classes/, test-classes/, surefire-reports/ de kopyalanıp imaj şişer.
+          New-Item -ItemType Directory -Force staging | Out-Null
+          Copy-Item $jar.FullName staging/
+
+          jpackage --type app-image `
+            --name LineWatch `
+            --input staging `
+            --main-jar $jar.Name `
+            --main-class com.emre.linewatch.Launcher `
+            --icon linewatch.ico `
+            --dest dist `
+            --app-version ${{ steps.ver.outputs.app }} `
+            --vendor 'Emre Zeytin' `
+            --copyright 'Copyright (c) 2026 Emre Zeytin' `
+            --description 'DSL hat izleme ve bildirim uygulamasi' `
+            --java-options '-Xms32m' `
+            --java-options '-Xmx192m' `
+            --java-options '-XX:+UseSerialGC' `
+            --java-options '-XX:MinHeapFreeRatio=10' `
+            --java-options '-XX:MaxHeapFreeRatio=30'
+
+          if (-not (Test-Path 'dist/LineWatch/LineWatch.exe')) { throw 'jpackage exe uretmedi' }
+
+      - name: Paketle ve checksum al
+        id: pack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $v = '${{ steps.ver.outputs.full }}'
+          $zip = "LineWatch-$v-windows-x64.zip"
+          Compress-Archive -Path dist/LineWatch -DestinationPath $zip -CompressionLevel Optimal
+
+          # Java'sı olanlar veya Windows dışında denemek isteyenler için düz jar
+          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' | Select-Object -First 1
+          $jarOut = "LineWatch-$v.jar"
+          Copy-Item $jar.FullName $jarOut
+
+          # İmzasız dağıtımda kullanıcı dosyayı doğrulayabilsin
+          Get-ChildItem $zip, $jarOut | ForEach-Object {
+            "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Out-File 'SHA256SUMS.txt' -Encoding ascii
+          Get-Content 'SHA256SUMS.txt'
+
+          "zip=$zip"    | Out-File $env:GITHUB_OUTPUT -Append
+          "jar=$jarOut" | Out-File $env:GITHUB_OUTPUT -Append
+
+      - name: Release notlarını hazırla
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Notlar .github/release-notes-template.md içinde; {{V}} yer tutucusu
+          # sürüm numarasıyla değiştirilir.
+          $tpl = Get-Content '.github/release-notes-template.md' -Raw
+          $tpl.Replace('{{V}}', '${{ steps.ver.outputs.full }}') |
+            Out-File 'RELEASE_NOTES.md' -Encoding utf8
+
+      - name: GitHub Release oluştur
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh release create 'v${{ steps.ver.outputs.full }}' `
+            '${{ steps.pack.outputs.zip }}' `
+            '${{ steps.pack.outputs.jar }}' `
+            'SHA256SUMS.txt' `
+            --title 'LineWatch ${{ steps.ver.outputs.full }}' `
+            --notes-file RELEASE_NOTES.md
