@@ -17,9 +17,11 @@
 
 ## İlk çalıştırma
 
-Uygulama açıldığında **Ayarlar** ekranı gelir. Modem şifreni (modem web arayüzüne
-girdiğin şifre — Wi-Fi şifresi değil) yaz, **Bağlantıyı test et**'e bas, ardından
-**Kaydet ve uygula**.
+Uygulama açılır açılmaz internet kalitesini ölçmeye başlar — hiçbir ayar gerekmez.
+
+DSL hat verilerini de görmek istiyorsan **Ayarlar → Modem izleme**'yi işaretle, modem
+şifreni (modem web arayüzüne girdiğin şifre — Wi-Fi şifresi değil) yaz,
+**Bağlantıyı test et**'e bas, ardından **Kaydet ve uygula**.
 
 > [!WARNING]
 > Modem 5 yanlış şifre denemesinden sonra 10 dakika kilitlenir. Şifreden emin
@@ -30,11 +32,15 @@ izlemeye devam eder. Tamamen kapatmak için tepsi simgesine sağ tıkla → **Ç
 
 ## Uyumluluk
 
-| | |
+| Özellik | Gereksinim |
 |---|---|
-| Doğrulanmış modem | TP-Link Archer VR400 (VDSL2) |
-| Muhtemelen çalışır | Aynı `/cgi_gdpr` protokolünü kullanan diğer TP-Link VDSL modemleri (test edilmedi) |
+| İnternet izleme (gecikme, jitter, paket kaybı) | Yok — her modem, her bağlantı türü |
+| DSL hat izleme (SNR, senkron, CRC) | TP-Link Archer VR400 (doğrulandı) |
+| DSL izleme — muhtemelen çalışır | Aynı `/cgi_gdpr` protokolünü kullanan diğer TP-Link VDSL modemleri (test edilmedi) |
 | İşletim sistemi | Windows 10 / 11 (x64) |
+
+Modemin desteklenmiyorsa **Ayarlar → Modem izleme**'yi kapat; uygulama internet
+kalitesi ölçümüyle çalışmaya devam eder.
 
 Farklı bir modemde denediysen — çalışsın ya da çalışmasın — sonucu
 [issue açarak](https://github.com/byFischer/LineWatch/issues) bildirebilirsin.

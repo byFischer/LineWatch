@@ -38,6 +38,11 @@ public final class Fmt {
         return String.format(TR, "%,.1f", v);
     }
 
+    /** 149.6 -> "150" (gecikme gibi ondaligi anlamsiz olan degerler icin) */
+    public static String dec0(double v) {
+        return String.format(TR, "%,.0f", v);
+    }
+
     /** 11.75, 6.2 -> "11,8 / 6,2" */
     public static String pair1(double a, double b) {
         return dec1(a) + " / " + dec1(b);

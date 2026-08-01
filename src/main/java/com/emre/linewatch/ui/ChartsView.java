@@ -1,9 +1,11 @@
 package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
+import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
 import com.emre.linewatch.ui.widget.EventLane;
 import com.emre.linewatch.ui.widget.Role;
@@ -32,6 +34,7 @@ public class ChartsView extends VBox {
     private static final int MAX_POINTS = 320;
 
     private final SampleRepository samples;
+    private final NetSampleRepository netSamples;
     private final EventRepository events;
     private final Settings settings;
 
@@ -41,8 +44,18 @@ public class ChartsView extends VBox {
     private final TimeChart snrChart = new TimeChart().unit("dB");
     private final TimeChart syncChart = new TimeChart().unit("Mbps");
     private final TimeChart crcChart = new TimeChart().unit("hata").zeroBased(true).timeAxis(true);
+
+    // Modem izlenmiyorken ayni yerlesim internet olcumleriyle doldurulur
+    private final TimeChart latencyChart = new TimeChart().unit("ms").zeroBased(true);
+    private final TimeChart jitterChart = new TimeChart().unit("ms").zeroBased(true);
+    private final TimeChart lossChart = new TimeChart().unit("%").zeroBased(true).timeAxis(true);
+
     private final EventLane lane = new EventLane();
-    private final List<TimeChart> charts = List.of(snrChart, syncChart, crcChart);
+    private final List<TimeChart> dslCharts = List.of(snrChart, syncChart, crcChart);
+    private final List<TimeChart> netCharts = List.of(latencyChart, jitterChart, lossChart);
+    private List<TimeChart> charts = dslCharts;
+    private VBox stack;
+    private boolean modemMonitored = true;
 
     private final ExecutorService loader = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "chart-loader");
@@ -51,8 +64,10 @@ public class ChartsView extends VBox {
     });
     private final AtomicBoolean reloadQueued = new AtomicBoolean();
 
-    public ChartsView(SampleRepository samples, EventRepository events, Settings settings) {
+    public ChartsView(SampleRepository samples, NetSampleRepository netSamples,
+                      EventRepository events, Settings settings) {
         this.samples = samples;
+        this.netSamples = netSamples;
         this.events = events;
         this.settings = settings;
 
@@ -65,26 +80,41 @@ public class ChartsView extends VBox {
         snrChart.setPrefHeight(150);
         syncChart.setPrefHeight(130);
         crcChart.setPrefHeight(140);
+        latencyChart.setPrefHeight(150);
+        jitterChart.setPrefHeight(130);
+        lossChart.setPrefHeight(140);
 
-        VBox stack = Ui.card(6,
-                header("SNR MARJI", "dB", true),
-                snrChart,
-                header("SENKRON HIZI", "Mbps", true),
-                syncChart,
-                header("CRC HATA ARTIŞI", "aralık başına artış", false),
-                crcChart,
-                lane);
-        VBox.setVgrow(snrChart, Priority.ALWAYS);
-        VBox.setVgrow(syncChart, Priority.ALWAYS);
-        VBox.setVgrow(crcChart, Priority.ALWAYS);
+        stack = Ui.card(6);
         VBox.setVgrow(stack, Priority.ALWAYS);
-
         getChildren().addAll(toolbar, stack);
 
-        wireCrosshair();
         lane.setOnHover(text -> hint.setText(text == null
                 ? "Grafiğin üzerine gel: değerler birlikte okunur" : text));
 
+        rebuildStack();
+    }
+
+    /**
+     * Modem izlemesinin acik olup olmadigini bildirir; grafik yigini buna gore
+     * DSL ya da internet olcumlerine gecer. JavaFX is parcaciginda cagrilmalidir.
+     */
+    public void setModemMonitored(boolean on) {
+        if (modemMonitored == on) return;
+        modemMonitored = on;
+        rebuildStack();
+    }
+
+    private void rebuildStack() {
+        charts = modemMonitored ? dslCharts : netCharts;
+        stack.getChildren().setAll(modemMonitored
+                ? List.of(header("SNR MARJI", "dB", true), snrChart,
+                        header("SENKRON HIZI", "Mbps", true), syncChart,
+                        header("CRC HATA ARTIŞI", "aralık başına artış", false), crcChart, lane)
+                : List.of(header("GECİKME", "ms", false), latencyChart,
+                        header("JİTTER", "ms · ardışık yoklamalar arası sapma", false), jitterChart,
+                        header("PAKET KAYBI", "%", false), lossChart, lane));
+        for (TimeChart c : charts) VBox.setVgrow(c, Priority.ALWAYS);
+        wireCrosshair();
         reload();
     }
 
@@ -120,8 +150,17 @@ public class ChartsView extends VBox {
         lane.setOnCrosshair(t -> charts.forEach(c -> c.setCrosshair(t)));
     }
 
-    /** Canli modda yeni ornek gelince grafigi tazeler (yalnizca 1 saat araliginda). */
+    /** Canli modda yeni DSL ornegi gelince grafigi tazeler (yalnizca 1 saat araliginda). */
     public void onSample(LineSample s) {
+        if (modemMonitored) queueReload();
+    }
+
+    /** Modem izlenmiyorken canli tazeleme internet olcumune bagli. */
+    public void onNet(NetSample n) {
+        if (!modemMonitored) queueReload();
+    }
+
+    private void queueReload() {
         if (range.selected() != 0) return;
         if (reloadQueued.compareAndSet(false, true)) {
             Platform.runLater(() -> {
@@ -140,67 +179,118 @@ public class ChartsView extends VBox {
             case 3 -> now - 30L * 24 * 3600_000;
             default -> now - 3600_000L;
         };
+        boolean modem = modemMonitored;
 
         loader.execute(() -> {
             try {
-                List<LineSample> rows = samples.findRange(from, now, MAX_POINTS);
                 List<LineEvent> eventList = events.findRange(from, now);
-                double snrThreshold = settings.snrThresholdDb();
-
-                int n = rows.size();
-                long[] ts = new long[n];
-                double[] snrDown = new double[n];
-                double[] snrUp = new double[n];
-                double[] syncDown = new double[n];
-                double[] syncUp = new double[n];
-                double[] crcDelta = new double[n];
-                long prevCrc = -1;
-                for (int i = 0; i < n; i++) {
-                    LineSample s = rows.get(i);
-                    ts[i] = s.ts();
-                    snrDown[i] = s.snrDown() / 10.0;
-                    snrUp[i] = s.snrUp() / 10.0;
-                    syncDown[i] = s.syncDown() / 1000.0;
-                    syncUp[i] = s.syncUp() / 1000.0;
-                    crcDelta[i] = prevCrc >= 0 ? Math.max(0, s.crcDown() - prevCrc) : 0;
-                    prevCrc = s.crcDown();
-                }
-
-                List<TimeChart.Marker> markers = new ArrayList<>();
-                for (LineEvent e : eventList) {
-                    Role role = switch (Icons.severity(e.type())) {
-                        case "bad" -> Role.BAD;
-                        case "warn" -> Role.WARN;
-                        case "good" -> Role.GOOD;
-                        default -> Role.ACCENT;
-                    };
-                    markers.add(new TimeChart.Marker(e.ts(), e.type().label, role));
-                }
-
-                Platform.runLater(() -> {
-                    for (TimeChart c : charts) c.setRange(from, now);
-                    lane.setRange(from, now);
-
-                    snrChart.threshold(snrThreshold, "uyarı eşiği " + Fmt.dec1(snrThreshold) + " dB");
-                    snrChart.setSeries(List.of(
-                            new TimeChart.Series("Aşağı", Role.DOWN, ts, snrDown, true),
-                            new TimeChart.Series("Yukarı", Role.UP, ts, snrUp, false)));
-                    syncChart.setSeries(List.of(
-                            new TimeChart.Series("Aşağı", Role.DOWN, ts, syncDown, true),
-                            new TimeChart.Series("Yukarı", Role.UP, ts, syncUp, false)));
-                    crcChart.setSeries(List.of(
-                            new TimeChart.Series("CRC artışı", Role.WARN, ts, crcDelta, true)));
-
-                    // olay isaretleri yalnizca kopmalar; her seyi cizmek grafigi kirletiyor
-                    List<TimeChart.Marker> lineMarks = markers.stream()
-                            .filter(m -> m.role() == Role.BAD)
-                            .toList();
-                    for (TimeChart c : charts) c.setMarkers(lineMarks);
-                    lane.setMarks(markers);
-                });
+                if (modem) loadDsl(from, now, eventList);
+                else loadNet(from, now, eventList);
             } catch (Exception e) {
                 System.err.println("Grafik verisi yüklenemedi: " + e.getMessage());
             }
         });
+    }
+
+    private void loadDsl(long from, long now, List<LineEvent> eventList) throws Exception {
+        List<LineSample> rows = samples.findRange(from, now, MAX_POINTS);
+        double snrThreshold = settings.snrThresholdDb();
+
+        int n = rows.size();
+        long[] ts = new long[n];
+        double[] snrDown = new double[n];
+        double[] snrUp = new double[n];
+        double[] syncDown = new double[n];
+        double[] syncUp = new double[n];
+        double[] crcDelta = new double[n];
+        long prevCrc = -1;
+        for (int i = 0; i < n; i++) {
+            LineSample s = rows.get(i);
+            ts[i] = s.ts();
+            snrDown[i] = s.snrDown() / 10.0;
+            snrUp[i] = s.snrUp() / 10.0;
+            syncDown[i] = s.syncDown() / 1000.0;
+            syncUp[i] = s.syncUp() / 1000.0;
+            crcDelta[i] = prevCrc >= 0 ? Math.max(0, s.crcDown() - prevCrc) : 0;
+            prevCrc = s.crcDown();
+        }
+
+        List<TimeChart.Marker> markers = buildMarkers(eventList);
+
+        Platform.runLater(() -> {
+            applyRange(from, now);
+            snrChart.threshold(snrThreshold, "uyarı eşiği " + Fmt.dec1(snrThreshold) + " dB");
+            snrChart.setSeries(List.of(
+                    new TimeChart.Series("Aşağı", Role.DOWN, ts, snrDown, true),
+                    new TimeChart.Series("Yukarı", Role.UP, ts, snrUp, false)));
+            syncChart.setSeries(List.of(
+                    new TimeChart.Series("Aşağı", Role.DOWN, ts, syncDown, true),
+                    new TimeChart.Series("Yukarı", Role.UP, ts, syncUp, false)));
+            crcChart.setSeries(List.of(
+                    new TimeChart.Series("CRC artışı", Role.WARN, ts, crcDelta, true)));
+            applyMarkers(markers);
+        });
+    }
+
+    private void loadNet(long from, long now, List<LineEvent> eventList) throws Exception {
+        List<NetSample> rows = netSamples.findRange(from, now, MAX_POINTS);
+
+        int n = rows.size();
+        long[] ts = new long[n];
+        double[] latency = new double[n];
+        double[] jitter = new double[n];
+        double[] loss = new double[n];
+        for (int i = 0; i < n; i++) {
+            NetSample s = rows.get(i);
+            ts[i] = s.ts();
+            // Olculemeyen degerler -1 saklanir; grafikte 0'a cekilmezse eksen bozulur
+            latency[i] = Math.max(0, s.latencyMs());
+            jitter[i] = Math.max(0, s.jitterMs());
+            loss[i] = s.lossPct();
+        }
+
+        double latencyThreshold = settings.latencyThresholdMs();
+        List<TimeChart.Marker> markers = buildMarkers(eventList);
+
+        Platform.runLater(() -> {
+            applyRange(from, now);
+            latencyChart.threshold(latencyThreshold,
+                    "uyarı eşiği " + Fmt.dec0(latencyThreshold) + " ms");
+            latencyChart.setSeries(List.of(
+                    new TimeChart.Series("Gecikme", Role.ACCENT, ts, latency, true)));
+            jitterChart.setSeries(List.of(
+                    new TimeChart.Series("Jitter", Role.MUTED, ts, jitter, true)));
+            lossChart.setSeries(List.of(
+                    new TimeChart.Series("Paket kaybı", Role.WARN, ts, loss, true)));
+            applyMarkers(markers);
+        });
+    }
+
+    private static List<TimeChart.Marker> buildMarkers(List<LineEvent> eventList) {
+        List<TimeChart.Marker> markers = new ArrayList<>();
+        for (LineEvent e : eventList) {
+            Role role = switch (Icons.severity(e.type())) {
+                case "bad" -> Role.BAD;
+                case "warn" -> Role.WARN;
+                case "good" -> Role.GOOD;
+                default -> Role.ACCENT;
+            };
+            markers.add(new TimeChart.Marker(e.ts(), e.type().label, role));
+        }
+        return markers;
+    }
+
+    private void applyRange(long from, long now) {
+        for (TimeChart c : charts) c.setRange(from, now);
+        lane.setRange(from, now);
+    }
+
+    private void applyMarkers(List<TimeChart.Marker> markers) {
+        // olay isaretleri yalnizca kopmalar; her seyi cizmek grafigi kirletiyor
+        List<TimeChart.Marker> lineMarks = markers.stream()
+                .filter(m -> m.role() == Role.BAD)
+                .toList();
+        for (TimeChart c : charts) c.setMarkers(lineMarks);
+        lane.setMarks(markers);
     }
 }

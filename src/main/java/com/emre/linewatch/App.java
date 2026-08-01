@@ -6,11 +6,13 @@ import com.emre.linewatch.alert.TelegramBot;
 import com.emre.linewatch.alert.TelegramNotifier;
 import com.emre.linewatch.alert.ToastNotifier;
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.collector.TpLinkCollector;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.Database;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
+import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
 import com.emre.linewatch.ui.AnalysisView;
 import com.emre.linewatch.ui.Anim;
@@ -67,6 +69,8 @@ public class App extends Application {
     private TrayIcon trayIcon;
     private Stage stage;
     private WindowChrome chrome;
+    private DashboardView dashboard;
+    private ChartsView charts;
 
     private final StackPane content = new StackPane();
     private final List<HBox> navItems = new ArrayList<>();
@@ -91,6 +95,7 @@ public class App extends Application {
 
         db = new Database();
         SampleRepository samples = new SampleRepository(db);
+        NetSampleRepository netSamples = new NetSampleRepository(db);
         EventRepository events = new EventRepository(db);
 
         TelegramNotifier telegram = new TelegramNotifier(settings);
@@ -101,11 +106,11 @@ public class App extends Application {
         notifiers.add(telegram);
 
         AlertEngine alerts = new AlertEngine(settings, events, samples, notifiers);
-        monitor = new MonitorService(settings, samples, alerts, telegram);
+        monitor = new MonitorService(settings, samples, netSamples, alerts, telegram);
         new TelegramBot(settings, telegram, monitor, events).start();
 
-        DashboardView dashboard = new DashboardView(samples, events);
-        ChartsView charts = new ChartsView(samples, events, settings);
+        dashboard = new DashboardView(samples, netSamples, events, settings);
+        charts = new ChartsView(samples, netSamples, events, settings);
         AnalysisView analysis = new AnalysisView(samples, events);
         EventsView eventsView = new EventsView(events, samples);
         SettingsView settingsView = new SettingsView(settings, this::applySettings);
@@ -116,6 +121,12 @@ public class App extends Application {
             dashboard.update(s);
             charts.onSample(s);
             updateStatus(s);
+        });
+        monitor.addNetListener(n -> {
+            dashboard.updateNet(n);
+            charts.onNet(n);
+            // Modem izlenmiyorken durum cubugu ve tray internetin kendisini gosterir.
+            if (!monitor.hasCollector()) updateNetStatus(n);
         });
         monitor.addStatusListener(error -> {
             if (error == null) return;
@@ -153,13 +164,20 @@ public class App extends Application {
 
         setupTray();
 
-        boolean needsSetup = settings.modemPassword().isBlank();
-        select(needsSetup ? 4 : 0);
-        if (!needsSetup) {
+        // Modem yapilandirilmamis olsa da Pano acilir: internet olcumu tek basina
+        // calisiyor, kullaniciyi bos bir ekranla karsilamanin anlami yok.
+        if (modemConfigured()) {
             monitor.setCollector(new TpLinkCollector(settings.modemHost(), settings.modemPassword()));
         }
+        dashboard.setModemMonitored(modemConfigured());
+        charts.setModemMonitored(modemConfigured());
+        select(0);
         stage.show();
         monitor.start();
+    }
+
+    private boolean modemConfigured() {
+        return settings.modemEnabled() && !settings.modemPassword().isBlank();
     }
 
     private void applyThemePreference() {
@@ -280,6 +298,24 @@ public class App extends Application {
                 : "LineWatch — HAT KOPUK");
     }
 
+    /** Modem izlenmiyorken durum gostergeleri internet olcumunu yansitir. */
+    private void updateNetStatus(NetSample n) {
+        boolean slow = (n.hasLatency() && n.latencyMs() > settings.latencyThresholdMs())
+                || n.lossPct() >= settings.lossThresholdPct();
+        String state = !n.online() ? "down" : slow ? "warn" : "up";
+        String label = switch (state) {
+            case "down" -> "İNTERNET YOK";
+            case "warn" -> "BAĞLANTI ZAYIF";
+            default -> "İNTERNET VAR";
+        };
+        Platform.runLater(() -> setStatus(state, label));
+        setTray(state, n.online()
+                ? "LineWatch — internet var"
+                + (n.hasLatency() ? " · " + Math.round(n.latencyMs()) + " ms" : "")
+                + (n.lossPct() > 0 ? " · %" + n.lossPct() + " kayıp" : "")
+                : "LineWatch — İNTERNET YOK");
+    }
+
     private void setStatus(String state, String label) {
         Ui.setDotKind(statusDot, state);
         statusLabel.setText(label);
@@ -323,7 +359,12 @@ public class App extends Application {
 
     private void applySettings() {
         applyThemePreference();
-        monitor.restart(new TpLinkCollector(settings.modemHost(), settings.modemPassword()));
+        boolean modem = modemConfigured();
+        dashboard.setModemMonitored(modem);
+        charts.setModemMonitored(modem);
+        monitor.restart(modem
+                ? new TpLinkCollector(settings.modemHost(), settings.modemPassword())
+                : null);
     }
 
     // ---------- tray ----------

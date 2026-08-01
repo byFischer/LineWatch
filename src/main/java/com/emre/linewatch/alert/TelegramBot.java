@@ -2,6 +2,7 @@ package com.emre.linewatch.alert;
 
 import com.emre.linewatch.MonitorService;
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -90,25 +91,42 @@ public class TelegramBot {
         } else if (text.startsWith("/olaylar")) {
             notifier.sendDirect(eventsText());
         } else if (text.startsWith("/yardim") || text.startsWith("/help") || text.startsWith("/start")) {
-            notifier.sendDirect("LineWatch komutlari:\n/durum — anlik hat durumu\n/olaylar — son 5 olay\n/yardim — bu mesaj");
+            notifier.sendDirect("LineWatch komutlari:\n/durum — anlik hat ve internet durumu\n/olaylar — son 5 olay\n/yardim — bu mesaj");
         }
     }
 
+    /** Modem izlenmiyorsa yalnizca internet bolumu doner; ikisi de yoksa uyari. */
     private String statusText() {
         LineSample s = monitor.lastSample();
-        if (s == null) return "Henuz veri toplanmadi.";
-        return String.format(
-                "%s LineWatch durum (%s)%n"
-                        + "Hat: %s (%s)%n"
-                        + "Sync: %.1f / %.1f Mbps%n"
-                        + "SNR: %.1f / %.1f dB%n"
-                        + "CRC: %,d (down) / %,d (up)",
-                s.isUp() ? "✅" : "❌",
-                new SimpleDateFormat("HH:mm:ss").format(new Date(s.ts())),
-                s.status(), s.modulation(),
-                s.syncDown() / 1000.0, s.syncUp() / 1000.0,
-                s.snrDown() / 10.0, s.snrUp() / 10.0,
-                s.crcDown(), s.crcUp());
+        NetSample n = monitor.lastNet();
+        if (s == null && n == null) return "Henuz veri toplanmadi.";
+
+        StringBuilder sb = new StringBuilder();
+        long ts = s != null ? s.ts() : n.ts();
+        boolean ok = s != null ? s.isUp() : n.online();
+        sb.append(ok ? "✅" : "❌").append(" LineWatch durum (")
+                .append(new SimpleDateFormat("HH:mm:ss").format(new Date(ts))).append(")");
+
+        if (s != null) {
+            sb.append(String.format(
+                    "%nHat: %s (%s)%n"
+                            + "Sync: %.1f / %.1f Mbps%n"
+                            + "SNR: %.1f / %.1f dB%n"
+                            + "CRC: %,d (down) / %,d (up)",
+                    s.status(), s.modulation(),
+                    s.syncDown() / 1000.0, s.syncUp() / 1000.0,
+                    s.snrDown() / 10.0, s.snrUp() / 10.0,
+                    s.crcDown(), s.crcUp()));
+        }
+        if (n != null) {
+            sb.append(String.format("%nInternet: %s", n.online() ? "var" : "yok"));
+            if (n.hasLatency()) {
+                sb.append(String.format("%nGecikme: %.0f ms", n.latencyMs()));
+                if (n.hasJitter()) sb.append(String.format(" (jitter %.0f ms)", n.jitterMs()));
+            }
+            sb.append(String.format("%nPaket kaybi: %%%d", n.lossPct()));
+        }
+        return sb.toString();
     }
 
     private String eventsText() {

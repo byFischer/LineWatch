@@ -1,8 +1,11 @@
 package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
+import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
 import com.emre.linewatch.ui.widget.MetricCard;
 import com.emre.linewatch.ui.widget.Role;
@@ -66,8 +69,24 @@ public class DashboardView extends ScrollPane {
     private final MetricCard capacityCard = new MetricCard("HAT KAPASİTESİ");
     private final MetricCard todayCard = new MetricCard("BUGÜN", false, false);
 
+    // internet erisim metrikleri (modem desteklenmese de dolar)
+    private final MetricCard latencyCard = new MetricCard("GECİKME");
+    private final MetricCard jitterCard = new MetricCard("JİTTER");
+    private final MetricCard lossCard = new MetricCard("PAKET KAYBI", true, true);
+
+    private final GridPane bento = new GridPane();
+    private final Label liveTitle = Ui.cardTitle("SON 60 DAKİKA · SNR MARJI");
+    private VBox heroCard;
+    private VBox uptimeCard;
+    private VBox liveCard;
+    private HBox liveLegend;
+    /** Modem izleniyor mu; false ise Pano internet olcumu uzerine kurulur. */
+    private boolean modemMonitored = true;
+
     private final SampleRepository samples;
+    private final NetSampleRepository netSamples;
     private final EventRepository events;
+    private final Settings settings;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "dashboard-stats");
         t.setDaemon(true);
@@ -75,19 +94,22 @@ public class DashboardView extends ScrollPane {
     });
 
     private LineSample previous;
+    private volatile NetSample lastNetSample;
     private volatile long lastSampleTs;
     private Timeline pulse;
     /** Serit uzerinde fare yokken alt satirda gosterilen ozet. */
     private String summaryText = "son 24 saat";
 
-    public DashboardView(SampleRepository samples, EventRepository events) {
+    public DashboardView(SampleRepository samples, NetSampleRepository netSamples,
+                         EventRepository events, Settings settings) {
         this.samples = samples;
+        this.netSamples = netSamples;
         this.events = events;
+        this.settings = settings;
 
         setFitToWidth(true);
         setHbarPolicy(ScrollBarPolicy.NEVER);
 
-        GridPane bento = new GridPane();
         bento.setHgap(14);
         bento.setVgap(14);
         for (int i = 0; i < 3; i++) {
@@ -96,19 +118,10 @@ public class DashboardView extends ScrollPane {
             bento.getColumnConstraints().add(c);
         }
 
-        VBox hero = buildHero();
-        VBox uptime = buildUptimeCard();
-        VBox live = buildLiveCard();
-
-        add(bento, hero, 0, 0, 2);
-        add(bento, uptime, 2, 0, 1);
-        add(bento, live, 0, 1, 3);
-        add(bento, snrCard, 0, 2, 1);
-        add(bento, syncCard, 1, 2, 1);
-        add(bento, crcCard, 2, 2, 1);
-        add(bento, attenCard, 0, 3, 1);
-        add(bento, capacityCard, 1, 3, 1);
-        add(bento, todayCard, 2, 3, 1);
+        heroCard = buildHero();
+        uptimeCard = buildUptimeCard();
+        liveCard = buildLiveCard();
+        rebuildLayout();
 
         VBox page = new VBox(bento);
         page.getStyleClass().add("page");
@@ -163,12 +176,67 @@ public class DashboardView extends ScrollPane {
     private VBox buildLiveCard() {
         liveChart.setPrefHeight(168);
         liveChart.setSeries(List.of());
-        HBox legend = Ui.row(14, legendItem("Aşağı yön", Role.DOWN), legendItem("Yukarı yön", Role.UP));
+        liveLegend = Ui.row(14, legendItem("Aşağı yön", Role.DOWN), legendItem("Yukarı yön", Role.UP));
         VBox card = Ui.card(10,
-                Ui.row(10, Ui.cardTitle("SON 60 DAKİKA · SNR MARJI"), Ui.hSpacer(), legend),
+                Ui.row(10, liveTitle, Ui.hSpacer(), liveLegend),
                 liveChart);
         VBox.setVgrow(liveChart, Priority.ALWAYS);
         return card;
+    }
+
+    /**
+     * Kartlari moda gore yerlestirir. Modem izlenmiyorken DSL kartlari hic
+     * eklenmez: surekli "—" gosteren kartlar veri yokmus gibi degil, olcum
+     * bozulmus gibi duruyor.
+     */
+    private void rebuildLayout() {
+        bento.getChildren().clear();
+        add(bento, heroCard, 0, 0, 2);
+        add(bento, uptimeCard, 2, 0, 1);
+        add(bento, liveCard, 0, 1, 3);
+        if (modemMonitored) {
+            add(bento, snrCard, 0, 2, 1);
+            add(bento, syncCard, 1, 2, 1);
+            add(bento, crcCard, 2, 2, 1);
+            add(bento, attenCard, 0, 3, 1);
+            add(bento, capacityCard, 1, 3, 1);
+            add(bento, todayCard, 2, 3, 1);
+            add(bento, latencyCard, 0, 4, 1);
+            add(bento, jitterCard, 1, 4, 1);
+            add(bento, lossCard, 2, 4, 1);
+        } else {
+            add(bento, latencyCard, 0, 2, 1);
+            add(bento, jitterCard, 1, 2, 1);
+            add(bento, lossCard, 2, 2, 1);
+        }
+
+        liveTitle.setText(modemMonitored ? "SON 60 DAKİKA · SNR MARJI" : "SON 60 DAKİKA · GECİKME");
+        liveChart.unit(modemMonitored ? "dB" : "ms");
+        liveLegend.setVisible(modemMonitored);
+        liveLegend.setManaged(modemMonitored);
+        uptimeInfo.setText(summaryText);
+    }
+
+    /**
+     * Modem izlemesinin acik olup olmadigini bildirir; Pano yerlesimi buna gore
+     * degisir. JavaFX is parcaciginda cagrilmalidir.
+     */
+    public void setModemMonitored(boolean on) {
+        if (modemMonitored == on) return;
+        modemMonitored = on;
+        rebuildLayout();
+        if (!on) {
+            // DSL'e ozgu metinler modemsiz modda anlamsiz kaliyor
+            statusText.setText("İNTERNET İZLENİYOR");
+            statusText.getStyleClass().removeAll("up", "down", "warn");
+            modulation.setText("modem yapılandırılmadı");
+            headline.setText("Modem izlenmiyor");
+            detail.setText("Ayarlar'dan modem şifresini girersen hat kalitesi (SNR, senkron hızı, "
+                    + "CRC) de izlenir. Şu an yalnızca internet erişimi ölçülüyor.");
+            grade.setText("—");
+            grade.setStyle("");
+            scoreText.setText("");
+        }
     }
 
     private HBox legendItem(String text, Role role) {
@@ -441,5 +509,169 @@ public class DashboardView extends ScrollPane {
     public void refresh() {
         LineSample s = previous;
         if (s != null) refreshBackground(s);
+    }
+
+    // ---------- internet erisim olcumu ----------
+
+    /** Herhangi bir thread'den cagrilabilir. */
+    public void updateNet(NetSample n) {
+        lastNetSample = n;
+        Platform.runLater(() -> applyNetCards(n));
+        refreshNetBackground();
+    }
+
+    private void applyNetCards(NetSample n) {
+        int warnMs = settings.latencyThresholdMs();
+        if (n.online() && n.hasLatency()) {
+            latencyCard.setValue(n.latencyMs(), Fmt::dec0);
+            latencyCard.setUnit("ms");
+            latencyCard.setState(n.latencyMs() > warnMs ? "bad"
+                    : n.latencyMs() > warnMs * 0.6 ? "warn" : "good");
+            latencyCard.setSub(n.target().isBlank() ? "TCP yoklaması" : n.target() + " · TCP yoklaması");
+        } else {
+            latencyCard.setValue("—");
+            latencyCard.setUnit("");
+            latencyCard.setState("bad");
+            latencyCard.setSub("erişim yok");
+        }
+
+        if (n.hasJitter()) {
+            // Tek tur icindeki sapma tipik olarak 1 ms'in altinda kaliyor;
+            // tam sayiya yuvarlanirsa kart surekli "0" gosterip degersiz gorunuyor.
+            jitterCard.setValue(n.jitterMs(), Fmt::dec1);
+            jitterCard.setUnit("ms");
+            jitterCard.setState(n.jitterMs() > 30 ? "bad" : n.jitterMs() > 10 ? "warn" : "good");
+            // Alt yazi arka planda son 1 saatin gecikme araligiyla doldurulur.
+        } else {
+            jitterCard.setValue("—");
+            jitterCard.setUnit("");
+            jitterCard.setState(null);
+            jitterCard.setSub(n.online() ? "yedek hedef · hesaplanamadı" : "erişim yok");
+        }
+
+        lossCard.setValue(n.lossPct(), Fmt::pct0);
+        lossCard.setState(n.lossPct() >= settings.lossThresholdPct() ? "bad"
+                : n.lossPct() > 0 ? "warn" : "good");
+        lossCard.setSub(n.received() + "/" + n.sent() + " yoklama yanıtlandı");
+    }
+
+    private void refreshNetBackground() {
+        worker.execute(() -> {
+            try {
+                long now = System.currentTimeMillis();
+                long hourAgo = now - HOUR_MS;
+                long dayAgo = now - DAY_MS;
+
+                List<NetSample> lastHour = netSamples.findRange(hourAgo, now, 180);
+                NetSampleRepository.Summary day = netSamples.summarySince(dayAgo);
+                // Serit ve buyuk grafik yalnizca modemsiz modda internete ayrilir
+                int[] netStates = modemMonitored ? null
+                        : buildStrip(netSamples.findStatusSince(dayAgo), dayAgo);
+
+                int n = lastHour.size();
+                long[] ts = new long[n];
+                double[] latency = new double[n];
+                double[] jitter = new double[n];
+                double[] loss = new double[n];
+                double minLatency = Double.MAX_VALUE;
+                double maxLatency = -1;
+                for (int i = 0; i < n; i++) {
+                    NetSample s = lastHour.get(i);
+                    ts[i] = s.ts();
+                    latency[i] = Math.max(0, s.latencyMs());
+                    jitter[i] = Math.max(0, s.jitterMs());
+                    loss[i] = s.lossPct();
+                    if (s.latencyMs() >= 0) {
+                        minLatency = Math.min(minLatency, s.latencyMs());
+                        maxLatency = Math.max(maxLatency, s.latencyMs());
+                    }
+                }
+                // Tur ici jitter cok dar bir pencereyi olcuyor; baglantinin gercekte
+                // ne kadar kararli oldugunu son bir saatin gecikme araligi gosteriyor.
+                String latencyRange = maxLatency >= 0
+                        ? "son 1 saat: " + Fmt.dec0(minLatency) + "–" + Fmt.dec0(maxLatency) + " ms"
+                        : "";
+
+                Platform.runLater(() -> {
+                    if (latencyCard.sparkline() != null) {
+                        latencyCard.sparkline().role(Role.ACCENT).setValues(latency);
+                    }
+                    if (jitterCard.sparkline() != null) {
+                        jitterCard.sparkline().role(Role.MUTED).setValues(jitter);
+                    }
+                    if (!latencyRange.isEmpty() && lastNetSample != null && lastNetSample.hasJitter()) {
+                        jitterCard.setSub(latencyRange);
+                    }
+                    if (lossCard.sparkline() != null) {
+                        lossCard.sparkline().role(Role.WARN).setValues(loss);
+                    }
+                    if (modemMonitored) return;
+
+                    liveChart.setRange(hourAgo, now);
+                    liveChart.setSeries(List.of(
+                            new TimeChart.Series("Gecikme", Role.ACCENT, ts, latency, true)));
+                    if (netStates != null) {
+                        strip.setData(netStates, dayAgo, DAY_MS / STRIP_BLOCKS);
+                        uptimePct.setText(Fmt.pct1(day.onlinePct()));
+                    }
+                    summaryText = day.hasData() && day.avgLatencyMs() >= 0
+                            ? "ortalama gecikme " + Fmt.dec0(day.avgLatencyMs()) + " ms"
+                            : "ölçümler toplanıyor";
+                    uptimeInfo.setText(summaryText);
+                    uninterrupted.setText(day.hasData()
+                            ? day.samples() + " ölçüm · kayıp " + Fmt.pct0(day.avgLossPct())
+                            : "");
+                    applyNetHealth(day);
+                });
+            } catch (Exception e) {
+                System.err.println("Internet olcum verisi yuklenemedi: " + e.getMessage());
+            }
+        });
+    }
+
+    /** Modemsiz modda hero bandini internet ozetiyle doldurur. */
+    private void applyNetHealth(NetSampleRepository.Summary day) {
+        NetSample now = lastNetSample;
+        if (now == null) return;
+        boolean online = now.online();
+        boolean slow = online && ((now.hasLatency() && now.latencyMs() > settings.latencyThresholdMs())
+                || now.lossPct() >= settings.lossThresholdPct());
+        String state = !online ? "down" : slow ? "warn" : "up";
+
+        Ui.setDotKind(dot, state);
+        startPulse(online);
+        statusText.setText(!online ? "İNTERNET YOK" : slow ? "BAĞLANTI ZAYIF" : "İNTERNET VAR");
+        statusText.getStyleClass().removeAll("up", "down", "warn");
+        statusText.getStyleClass().add(state);
+        modulation.setText(now.target().isBlank()
+                ? "modem izlenmiyor"
+                : now.target() + " · modem izlenmiyor");
+        updated.setText("son güncelleme " + Fmt.ago(now.ts()));
+
+        headline.setText(!online ? "İnternet erişimi yok"
+                : slow ? "Bağlantı yavaş" : "İnternet erişimi sorunsuz");
+
+        StringBuilder text = new StringBuilder();
+        if (day.hasData()) {
+            text.append("Son 24 saatte ").append(Fmt.pct1(day.onlinePct())).append(" erişim");
+            if (day.avgLatencyMs() >= 0) {
+                text.append(", ortalama gecikme ").append(Fmt.dec0(day.avgLatencyMs())).append(" ms");
+            }
+            if (day.avgLossPct() > 0) {
+                text.append(", paket kaybı ").append(Fmt.pct0(day.avgLossPct()));
+            }
+            text.append(". ");
+        } else {
+            text.append("Ölçümler toplanıyor. ");
+        }
+        text.append("Hat kalitesini (SNR, senkron hızı, CRC) de izlemek için "
+                + "Ayarlar'dan modem şifreni gir.");
+        detail.setText(text.toString());
+
+        grade.setText(now.hasLatency() ? Fmt.dec0(now.latencyMs()) : "—");
+        scoreText.setText(now.hasLatency() ? "ms gecikme" : "");
+        Theme.Palette p = Theme.palette();
+        grade.setStyle("-fx-text-fill: "
+                + toHex(!online ? p.bad() : slow ? p.warn() : p.good()) + ";");
     }
 }

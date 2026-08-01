@@ -10,6 +10,8 @@ public record LineEvent(long id, long ts, Type type, String detail, long duratio
         RETRAIN("Yeniden senkron"),
         NET_DOWN("İnternet yok (hat aktif)"),
         NET_UP("İnternet geldi"),
+        HIGH_LATENCY("Yüksek gecikme"),
+        PACKET_LOSS("Paket kaybı"),
         REBOOT("Modem yeniden başlatıldı"),
         MODEM_UNREACHABLE("Modeme ulaşılamıyor"),
         COLLECTOR_ERROR("Toplayıcı hatası");

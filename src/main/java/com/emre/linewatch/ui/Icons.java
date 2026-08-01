@@ -96,7 +96,8 @@ public final class Icons {
         return switch (type) {
             case LINK_DOWN, NET_DOWN -> WIFI_OFF;
             case LINK_UP, NET_UP -> CHECK;
-            case CRC_BURST -> ZAP;
+            case CRC_BURST, PACKET_LOSS -> ZAP;
+            case HIGH_LATENCY -> CLOCK;
             case LOW_SNR, COLLECTOR_ERROR -> ALERT;
             case RETRAIN -> REFRESH;
             case REBOOT -> POWER;
@@ -108,7 +109,7 @@ public final class Icons {
     public static String severity(LineEvent.Type type) {
         return switch (type) {
             case LINK_DOWN, NET_DOWN, MODEM_UNREACHABLE -> "bad";
-            case CRC_BURST, LOW_SNR, COLLECTOR_ERROR -> "warn";
+            case CRC_BURST, LOW_SNR, COLLECTOR_ERROR, HIGH_LATENCY, PACKET_LOSS -> "warn";
             case LINK_UP, NET_UP -> "good";
             case RETRAIN, REBOOT -> "info";
         };

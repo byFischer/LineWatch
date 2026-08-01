@@ -32,7 +32,11 @@ public class SettingsView extends ScrollPane {
     private final TextField poll = new TextField();
     private final TextField crcThreshold = new TextField();
     private final TextField snrThreshold = new TextField();
+    private final TextField latencyThreshold = new TextField();
+    private final TextField lossThreshold = new TextField();
     private final TextField cooldown = new TextField();
+    private final CheckBox monitorModem = new CheckBox("Modem izleme");
+    private final CheckBox monitorNet = new CheckBox("İnternet erişimini ölç");
     private final CheckBox toast = new CheckBox("Windows bildirimi (toast)");
     private final CheckBox telegram = new CheckBox("Telegram bildirimi");
     private final TextField tgToken = new TextField();
@@ -64,8 +68,9 @@ public class SettingsView extends ScrollPane {
 
         add(grid, modemCard(), 0, 0);
         add(grid, thresholdCard(), 1, 0);
-        add(grid, notificationCard(), 0, 1);
-        add(grid, appearanceCard(), 1, 1);
+        add(grid, netCard(), 0, 1);
+        add(grid, notificationCard(), 1, 1);
+        add(grid, appearanceCard(), 0, 2);
 
         Button save = Ui.button("Kaydet ve uygula", null);
         save.setOnAction(e -> save());
@@ -87,18 +92,35 @@ public class SettingsView extends ScrollPane {
 
     private VBox modemCard() {
         host.setPromptText("http://192.168.1.1");
-        poll.setPromptText("15");
 
         Button test = Ui.button("Bağlantıyı test et", Icons.plug(Icons.SM), "subtle");
         test.setOnAction(e -> testConnection(test));
 
-        return Ui.card(12,
-                Ui.cardTitle("MODEM"),
+        // Modem izleme kapaliyken alanlar soluklasir; uygulama internet olcumuyle
+        // calismaya devam ettigi icin bu bir hata durumu degil, bilincli bir tercih.
+        VBox fields = new VBox(12,
                 field("Modem adresi", host),
                 field("Modem şifresi", passwordField()),
+                Ui.row(10, test, testResult));
+        fields.disableProperty().bind(monitorModem.selectedProperty().not());
+
+        return Ui.card(12,
+                Ui.cardTitle("MODEM"),
+                monitorModem,
+                fields,
+                Ui.faint("Kapatırsan SNR / senkron / CRC izlenmez; internet ölçümü sürer. "
+                        + "Test, izleyicinin modem oturumunu tazeler — ölçüm bir turluk gecikebilir."));
+    }
+
+    private VBox netCard() {
+        poll.setPromptText("15");
+        return Ui.card(12,
+                Ui.cardTitle("İNTERNET ÖLÇÜMÜ"),
+                monitorNet,
+                Ui.faint("Bilinen sunuculara TCP yoklaması yapılır; gecikme, jitter ve paket "
+                        + "kaybı ölçülür. Modem desteklenmiyorsa da çalışır."),
                 field("Örnekleme aralığı", withSuffix(poll, "saniye")),
-                Ui.row(10, test, testResult),
-                Ui.faint("Test, izleyicinin modem oturumunu tazeler; ölçüm bir turluk gecikebilir."));
+                Ui.faint("Modem ve internet ölçümü aynı turda yapılır."));
     }
 
     private VBox thresholdCard() {
@@ -106,6 +128,8 @@ public class SettingsView extends ScrollPane {
                 Ui.cardTitle("UYARI EŞİKLERİ"),
                 field("CRC artış eşiği", withSuffix(crcThreshold, "örnekleme başına")),
                 field("SNR alt sınırı", withSuffix(snrThreshold, "dB")),
+                field("Gecikme üst sınırı", withSuffix(latencyThreshold, "ms")),
+                field("Paket kaybı üst sınırı", withSuffix(lossThreshold, "%")),
                 field("Aynı bildirim için bekleme", withSuffix(cooldown, "dakika")),
                 Ui.faint("Eşik aşıldığında olay kaydedilir ve seçili bildirim kanalları tetiklenir."));
     }
@@ -197,7 +221,11 @@ public class SettingsView extends ScrollPane {
         poll.setText(String.valueOf(settings.pollSeconds()));
         crcThreshold.setText(String.valueOf(settings.crcDeltaThreshold()));
         snrThreshold.setText(String.valueOf(settings.snrThresholdDb()));
+        latencyThreshold.setText(String.valueOf(settings.latencyThresholdMs()));
+        lossThreshold.setText(String.valueOf(settings.lossThresholdPct()));
         cooldown.setText(String.valueOf(settings.alertCooldownMinutes()));
+        monitorModem.setSelected(settings.modemEnabled());
+        monitorNet.setSelected(settings.netProbeEnabled());
         toast.setSelected(settings.toastEnabled());
         telegram.setSelected(settings.telegramEnabled());
         tgToken.setText(settings.telegramToken());
@@ -249,7 +277,11 @@ public class SettingsView extends ScrollPane {
             settings.pollSeconds(parseInt(poll.getText(), 15));
             settings.crcDeltaThreshold(parseInt(crcThreshold.getText(), 50));
             settings.snrThresholdDb(parseDouble(snrThreshold.getText(), 6.0));
+            settings.latencyThresholdMs(parseInt(latencyThreshold.getText(), 150));
+            settings.lossThresholdPct(parseInt(lossThreshold.getText(), 5));
             settings.alertCooldownMinutes(parseInt(cooldown.getText(), 15));
+            settings.modemEnabled(monitorModem.isSelected());
+            settings.netProbeEnabled(monitorNet.isSelected());
             settings.toastEnabled(toast.isSelected());
             settings.telegramEnabled(telegram.isSelected());
             settings.telegramToken(tgToken.getText().trim());

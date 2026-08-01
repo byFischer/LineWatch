@@ -55,6 +55,23 @@ public class Settings {
     public int alertCooldownMinutes() { return getInt("alert.cooldownMin", 15); }
     public void alertCooldownMinutes(int v) { p.setProperty("alert.cooldownMin", String.valueOf(v)); }
 
+    // ---- internet erisim olcumu (modem desteklenmese de calisir) ----
+
+    /** Modem izleme acik mi; varsayilan olarak sifre girilmisse acik. */
+    public boolean modemEnabled() { return getBool("monitor.modem", !modemPassword().isBlank()); }
+    public void modemEnabled(boolean v) { p.setProperty("monitor.modem", String.valueOf(v)); }
+
+    public boolean netProbeEnabled() { return getBool("monitor.net", true); }
+    public void netProbeEnabled(boolean v) { p.setProperty("monitor.net", String.valueOf(v)); }
+
+    /** Bu degerin ustundeki ortalama gecikme uyari uretir (ms). */
+    public int latencyThresholdMs() { return getInt("alert.latencyMs", 150); }
+    public void latencyThresholdMs(int v) { p.setProperty("alert.latencyMs", String.valueOf(v)); }
+
+    /** Bu oranin ustundeki paket kaybi uyari uretir (%). */
+    public int lossThresholdPct() { return getInt("alert.lossPct", 5); }
+    public void lossThresholdPct(int v) { p.setProperty("alert.lossPct", String.valueOf(v)); }
+
     public boolean toastEnabled() { return getBool("notify.toast", true); }
     public void toastEnabled(boolean v) { p.setProperty("notify.toast", String.valueOf(v)); }
 

@@ -54,7 +54,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' | Select-Object -First 1
+          # Temiz checkout'ta tek jar olur; yine de eski surumlerden biri kalirsa
+          # en yenisi secilsin diye tarihe gore siralaniyor.
+          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $jar) { throw 'Dagitim jar bulunamadi (mvn package basarisiz olmus olabilir)' }
 
           # Sadece çalıştırılabilir jar imaja girsin; "target" klasörünün tamamı
@@ -91,7 +94,10 @@ jobs:
           Compress-Archive -Path dist/LineWatch -DestinationPath $zip -CompressionLevel Optimal
 
           # Java'sı olanlar veya Windows dışında denemek isteyenler için düz jar
-          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' | Select-Object -First 1
+          # Temiz checkout'ta tek jar olur; yine de eski surumlerden biri kalirsa
+          # en yenisi secilsin diye tarihe gore siralaniyor.
+          $jar = Get-ChildItem target -Filter '*-jar-with-dependencies.jar' |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
           $jarOut = "LineWatch-$v.jar"
           Copy-Item $jar.FullName $jarOut
 

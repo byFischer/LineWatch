@@ -42,6 +42,17 @@ public class Database {
                   detail TEXT,
                   duration_sec INTEGER)""");
             st.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts)");
+            // Internet erisim olcumleri; DSL orneklerinden ayri tutulur cunku
+            // modem desteklenmese de toplanmaya devam eder.
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS net_samples(
+                  ts INTEGER PRIMARY KEY,
+                  online INTEGER NOT NULL,
+                  latency_ms REAL,
+                  jitter_ms REAL,
+                  loss_pct INTEGER,
+                  sent INTEGER, received INTEGER,
+                  target TEXT)""");
         }
     }
 

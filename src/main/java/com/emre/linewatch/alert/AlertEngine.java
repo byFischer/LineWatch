@@ -2,6 +2,7 @@ package com.emre.linewatch.alert;
 
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.ModemCollector.CollectorException;
+import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -29,6 +30,9 @@ public class AlertEngine {
     private int lowSnrStreak = 0;
     private Boolean netUp = null;         // internet erisimi (null = henuz bilinmiyor)
     private long netDownSince = -1;
+    private NetSample lastNet;
+    private int highLatencyStreak = 0;
+    private int lossStreak = 0;
     private final Map<LineEvent.Type, Long> lastNotified = new EnumMap<>(LineEvent.Type.class);
 
     public AlertEngine(Settings settings, EventRepository events,
@@ -102,16 +106,63 @@ public class AlertEngine {
         }
     }
 
-    /** Hat Up'ken internet erisim durumu degisirse olay uretir. */
-    public synchronized void onConnectivity(boolean online) {
+    /**
+     * Internet erisim olcumunu degerlendirir: erisim kesilmesi/gelmesi, yuksek
+     * gecikme ve paket kaybi. Modem yapilandirilmamis olsa da calisir — modemsiz
+     * kurulumda uygulamanin tek olay kaynagi budur.
+     */
+    public synchronized void onNetSample(NetSample net) {
+        lastNet = net;
+        onConnectivity(net.online());
+        if (!net.online()) {
+            // Cevrimdisiyken gecikme/kayip zaten anlamsiz; sayaclar sifirlanir ki
+            // erisim gelince eski seri uzerinden yanlis uyari uretilmesin.
+            highLatencyStreak = 0;
+            lossStreak = 0;
+            return;
+        }
+
+        if (net.hasLatency() && net.latencyMs() > settings.latencyThresholdMs()) {
+            if (++highLatencyStreak == 3) {
+                emit(LineEvent.Type.HIGH_LATENCY,
+                        "Gecikme " + Math.round(net.latencyMs()) + " ms (eşik: "
+                                + settings.latencyThresholdMs() + " ms)"
+                                + (net.hasJitter() ? ", jitter " + Math.round(net.jitterMs()) + " ms" : "")
+                                + " · hedef: " + net.target(),
+                        0, false, true);
+            }
+        } else {
+            highLatencyStreak = 0;
+        }
+
+        // Tek turluk kayip gurultu olabilir; art arda iki turda tekrarlarsa raporlanir.
+        if (net.lossPct() > 0 && net.lossPct() >= settings.lossThresholdPct()) {
+            if (++lossStreak == 2) {
+                emit(LineEvent.Type.PACKET_LOSS,
+                        "Paket kaybı %" + net.lossPct() + " (" + net.received() + "/"
+                                + net.sent() + " yoklama yanıtlandı, hedef: " + net.target() + ")",
+                        0, true, true);
+            }
+        } else {
+            lossStreak = 0;
+        }
+    }
+
+    /** Internet erisiminin var/yok gecisleri. */
+    private void onConnectivity(boolean online) {
         if (netUp != null && netUp == online) return;
         boolean firstReading = netUp == null;
         netUp = online;
         if (!online) {
             netDownSince = System.currentTimeMillis();
-            if (!firstReading) {
+            // Hat zaten kopuksa LINK_DOWN durumu anlatiyor; ayrica NET_DOWN uretmek
+            // ayni olayi iki kez bildirmek olur.
+            if (!firstReading && !wasDown) {
+                boolean dslUp = last != null && last.isUp();
                 emit(LineEvent.Type.NET_DOWN,
-                        "DSL senkron ama internete çıkış yok — sorun büyük ihtimalle sağlayıcı tarafında",
+                        dslUp
+                                ? "DSL senkron ama internete çıkış yok — sorun büyük ihtimalle sağlayıcı tarafında"
+                                : "İnternet erişimi kesildi",
                         0, true, false);
             }
         } else if (!firstReading) {
@@ -120,6 +171,10 @@ public class AlertEngine {
                     durSec, false, false);
             netDownSince = -1;
         }
+    }
+
+    public synchronized NetSample lastNet() {
+        return lastNet;
     }
 
     public synchronized boolean isNetUp() {
