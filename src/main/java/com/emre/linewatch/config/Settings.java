@@ -90,6 +90,10 @@ public class Settings {
     public String theme() { return p.getProperty("ui.theme", "AUTO"); }
     public void theme(String v) { p.setProperty("ui.theme", v); }
 
+    /** Arayuz dili: "auto" (sistem dili), "tr" ya da "en" (bkz. I18n). */
+    public String language() { return p.getProperty("ui.language", I18n.AUTO); }
+    public void language(String v) { p.setProperty("ui.language", v); }
+
     private int getInt(String k, int def) {
         try { return Integer.parseInt(p.getProperty(k, String.valueOf(def))); }
         catch (NumberFormatException e) { return def; }

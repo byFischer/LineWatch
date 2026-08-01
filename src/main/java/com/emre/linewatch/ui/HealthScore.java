@@ -1,6 +1,7 @@
 package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.config.I18n;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,13 +15,13 @@ import java.util.List;
 public record HealthScore(int score, String grade, String headline, String detail, String state) {
 
     public static HealthScore unknown() {
-        return new HealthScore(0, "—", "Hat durumu bekleniyor",
-                "Modemden ilk ölçüm bekleniyor.", "unknown");
+        return new HealthScore(0, I18n.t("common.dash"), I18n.t("health.waitingHeadline"),
+                I18n.t("health.waitingDetail"), "unknown");
     }
 
     public static HealthScore down(String reason) {
-        return new HealthScore(0, "F", "Hat şu anda kopuk",
-                reason == null || reason.isBlank() ? "Modem senkron kuramıyor." : reason, "down");
+        return new HealthScore(0, "F", I18n.t("health.downHeadline"),
+                reason == null || reason.isBlank() ? I18n.t("health.downDetail") : reason, "down");
     }
 
     /**
@@ -36,11 +37,11 @@ public record HealthScore(int score, String grade, String headline, String detai
         String state = points >= 70 ? "up" : points >= 45 ? "warn" : "down";
 
         String headline = switch (grade) {
-            case "A" -> "Hattınız çok iyi durumda";
-            case "B" -> "Hattınız iyi durumda";
-            case "C" -> "Hattınız orta seviyede";
-            case "D" -> "Hattınız sorunlu";
-            default -> "Hattınızda ciddi sorun var";
+            case "A" -> I18n.t("health.gradeA");
+            case "B" -> I18n.t("health.gradeB");
+            case "C" -> I18n.t("health.gradeC");
+            case "D" -> I18n.t("health.gradeD");
+            default -> I18n.t("health.gradeF");
         };
 
         return new HealthScore(points, grade, headline,
@@ -49,17 +50,19 @@ public record HealthScore(int score, String grade, String headline, String detai
 
     private static String describe(int drops, double crcPerHour, double snr, double capacity) {
         List<String> issues = new ArrayList<>();
-        if (drops > 0) issues.add("son 24 saatte " + drops + " kopma yaşandı");
-        if (crcPerHour >= 10) issues.add("CRC sayacı saatte ~" + Fmt.count(Math.round(crcPerHour)) + " artıyor");
-        if (snr < 9) issues.add("SNR marjı " + Fmt.dec1(snr) + " dB ile düşük");
-        if (capacity < 70) issues.add("hattın kapasitesinin yalnızca " + Fmt.pct0(capacity) + "'i kullanılıyor");
+        if (drops > 0) issues.add(I18n.t("health.issueDrops", drops));
+        if (crcPerHour >= 10) issues.add(I18n.t("health.issueCrc", Fmt.count(Math.round(crcPerHour))));
+        if (snr < 9) issues.add(I18n.t("health.issueSnr", Fmt.dec1(snr)));
+        if (capacity < 70) issues.add(I18n.t("health.issueCapacity", Fmt.pct0(capacity)));
 
-        if (issues.isEmpty()) return "Son 24 saatte kopma yok, hata sayaçları sakin.";
+        if (issues.isEmpty()) return I18n.t("health.allGood");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < issues.size(); i++) {
-            if (i == 0) sb.append(Character.toUpperCase(issues.get(i).charAt(0))).append(issues.get(i).substring(1));
-            else if (i == issues.size() - 1) sb.append(" ve ").append(issues.get(i));
-            else sb.append(", ").append(issues.get(i));
+            String issue = issues.get(i);
+            // Turkcede "i" -> "İ" oldugu icin buyuk harf donusumu locale'e duyarli olmali
+            if (i == 0) sb.append(issue.substring(0, 1).toUpperCase(Fmt.locale())).append(issue.substring(1));
+            else if (i == issues.size() - 1) sb.append(I18n.t("common.and")).append(' ').append(issue);
+            else sb.append(I18n.t("common.listSep")).append(' ').append(issue);
         }
         return sb.append('.').toString();
     }

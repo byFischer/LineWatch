@@ -3,6 +3,7 @@ package com.emre.linewatch.alert;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.ModemCollector.CollectorException;
 import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -49,7 +50,7 @@ public class AlertEngine {
 
     public synchronized void onSample(LineSample s) {
         if (!s.isUp()) {
-            markDown("Hat durumu: " + s.status());
+            markDown(I18n.t("alert.lineStatus", s.status()));
             last = s;
             return;
         }
@@ -57,8 +58,7 @@ public class AlertEngine {
         if (wasDown) {
             long durSec = downSince > 0 ? (s.ts() - downSince) / 1000 : 0;
             emit(LineEvent.Type.LINK_UP,
-                    "Hat geri geldi (" + fmtDur(durSec) + " kesinti). Senkron: "
-                            + s.syncDown() / 1000.0 + "/" + s.syncUp() / 1000.0 + " Mbps",
+                    I18n.t("alert.lineUp", fmtDur(durSec), s.syncDown() / 1000.0, s.syncUp() / 1000.0),
                     durSec, false, true);
             wasDown = false;
             downSince = -1;
@@ -69,16 +69,14 @@ public class AlertEngine {
             long delta = s.crcDown() - last.crcDown();
             if (delta >= settings.crcDeltaThreshold()) {
                 emit(LineEvent.Type.CRC_BURST,
-                        "Son " + (s.ts() - last.ts()) / 1000 + " sn'de " + delta + " CRC hatası. "
-                                + "SNR: " + s.snrDown() / 10.0 + " dB",
+                        I18n.t("alert.crcBurst", (s.ts() - last.ts()) / 1000, delta, s.snrDown() / 10.0),
                         0, true, true);
             }
 
             // Retrain: sync hizi degisti (yeniden senkron olmus)
             if (s.syncDown() != last.syncDown() || s.syncUp() != last.syncUp()) {
                 emit(LineEvent.Type.RETRAIN,
-                        "Senkron değişti: " + last.syncDown() + " → " + s.syncDown() + " kbps (aşağı), "
-                                + last.syncUp() + " → " + s.syncUp() + " kbps (yukarı)",
+                        I18n.t("alert.retrain", last.syncDown(), s.syncDown(), last.syncUp(), s.syncUp()),
                         0, false, true);
             }
         }
@@ -87,7 +85,7 @@ public class AlertEngine {
         if (s.snrDown() / 10.0 < settings.snrThresholdDb()) {
             if (++lowSnrStreak == 3) {
                 emit(LineEvent.Type.LOW_SNR,
-                        "SNR marjı " + s.snrDown() / 10.0 + " dB (eşik: " + settings.snrThresholdDb() + " dB)",
+                        I18n.t("alert.lowSnr", s.snrDown() / 10.0, settings.snrThresholdDb()),
                         0, true, true);
             }
         } else {
@@ -99,9 +97,9 @@ public class AlertEngine {
 
     public synchronized void onError(CollectorException e) {
         switch (e.kind()) {
-            case UNREACHABLE -> markDown("Modeme ulaşılamıyor (modem kapalı ya da yeniden başlıyor olabilir)");
+            case UNREACHABLE -> markDown(I18n.t("alert.modemUnreachable"));
             case AUTH_FAILED -> emit(LineEvent.Type.COLLECTOR_ERROR,
-                    "Modem şifresi hatalı görünüyor — Ayarlar'dan kontrol et", 0, true, true);
+                    I18n.t("alert.authFailed"), 0, true, true);
             case PROTOCOL -> emit(LineEvent.Type.COLLECTOR_ERROR, String.valueOf(e.getMessage()), 0, false, true);
         }
     }
@@ -124,11 +122,11 @@ public class AlertEngine {
 
         if (net.hasLatency() && net.latencyMs() > settings.latencyThresholdMs()) {
             if (++highLatencyStreak == 3) {
+                String jitterPart = net.hasJitter()
+                        ? I18n.t("alert.highLatencyJitter", Math.round(net.jitterMs())) : "";
                 emit(LineEvent.Type.HIGH_LATENCY,
-                        "Gecikme " + Math.round(net.latencyMs()) + " ms (eşik: "
-                                + settings.latencyThresholdMs() + " ms)"
-                                + (net.hasJitter() ? ", jitter " + Math.round(net.jitterMs()) + " ms" : "")
-                                + " · hedef: " + net.target(),
+                        I18n.t("alert.highLatency", Math.round(net.latencyMs()),
+                                settings.latencyThresholdMs(), jitterPart, net.target()),
                         0, false, true);
             }
         } else {
@@ -139,8 +137,7 @@ public class AlertEngine {
         if (net.lossPct() > 0 && net.lossPct() >= settings.lossThresholdPct()) {
             if (++lossStreak == 2) {
                 emit(LineEvent.Type.PACKET_LOSS,
-                        "Paket kaybı %" + net.lossPct() + " (" + net.received() + "/"
-                                + net.sent() + " yoklama yanıtlandı, hedef: " + net.target() + ")",
+                        I18n.t("alert.packetLoss", net.lossPct(), net.sent(), net.received(), net.target()),
                         0, true, true);
             }
         } else {
@@ -160,15 +157,11 @@ public class AlertEngine {
             if (!firstReading && !wasDown) {
                 boolean dslUp = last != null && last.isUp();
                 emit(LineEvent.Type.NET_DOWN,
-                        dslUp
-                                ? "DSL senkron ama internete çıkış yok — sorun büyük ihtimalle sağlayıcı tarafında"
-                                : "İnternet erişimi kesildi",
-                        0, true, false);
+                        I18n.t(dslUp ? "alert.netDownDsl" : "alert.netDown"), 0, true, false);
             }
         } else if (!firstReading) {
             long durSec = netDownSince > 0 ? (System.currentTimeMillis() - netDownSince) / 1000 : 0;
-            emit(LineEvent.Type.NET_UP, "İnternet erişimi geri geldi (" + fmtDur(durSec) + ")",
-                    durSec, false, false);
+            emit(LineEvent.Type.NET_UP, I18n.t("alert.netUp", fmtDur(durSec)), durSec, false, false);
             netDownSince = -1;
         }
     }
@@ -185,16 +178,16 @@ public class AlertEngine {
         if (!wasDown) {
             wasDown = true;
             downSince = System.currentTimeMillis();
-            emit(LineEvent.Type.LINK_DOWN, detail + preDropAnalysis(), 0, true, false);
+            emit(LineEvent.Type.LINK_DOWN, withPreDrop(detail), 0, true, false);
         }
     }
 
-    /** Kopmadan onceki 10 dakikanin ozeti: SNR gidisati + CRC artisi. */
-    private String preDropAnalysis() {
+    /** Kopma detayinin sonuna onceki 10 dakikanin ozetini ekler. */
+    private String withPreDrop(String detail) {
         try {
             long now = System.currentTimeMillis();
             List<LineSample> window = samples.findRange(now - 10 * 60_000, now, 600);
-            if (window.size() < 2) return "";
+            if (window.size() < 2) return detail;
             double minSnr = Double.MAX_VALUE, sumSnr = 0;
             long crcDelta = 0;
             LineSample prev = null;
@@ -208,11 +201,10 @@ public class AlertEngine {
                 if (prev != null && s.crcDown() >= prev.crcDown()) crcDelta += s.crcDown() - prev.crcDown();
                 prev = s;
             }
-            if (upCount == 0) return "";
-            return String.format(" | Kopma öncesi 10 dk: SNR ort. %.1f / en düşük %.1f dB, +%d CRC",
-                    sumSnr / upCount, minSnr, crcDelta);
+            if (upCount == 0) return detail;
+            return I18n.t("alert.preDrop", detail, sumSnr / upCount, minSnr, crcDelta);
         } catch (Exception e) {
-            return "";
+            return detail;
         }
     }
 
@@ -235,15 +227,15 @@ public class AlertEngine {
         lastNotified.put(type, now);
         for (Notifier n : notifiers) {
             try {
-                n.notify("LineWatch: " + type.label, detail, urgent);
+                n.notify(I18n.t("alert.notifyTitle", type.label()), detail, urgent);
             } catch (Exception ignored) {
             }
         }
     }
 
     private static String fmtDur(long sec) {
-        if (sec < 60) return sec + " sn";
-        if (sec < 3600) return sec / 60 + " dk " + sec % 60 + " sn";
-        return sec / 3600 + " sa " + (sec % 3600) / 60 + " dk";
+        if (sec < 60) return I18n.t("fmt.durSeconds", sec);
+        if (sec < 3600) return I18n.t("fmt.durMinutesSeconds", sec / 60, sec % 60);
+        return I18n.t("fmt.durHoursMinutes", sec / 3600, (sec % 3600) / 60);
     }
 }

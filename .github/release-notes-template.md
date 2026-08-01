@@ -18,6 +18,8 @@
 ## İlk çalıştırma
 
 Uygulama açılır açılmaz internet kalitesini ölçmeye başlar — hiçbir ayar gerekmez.
+Arayüz sistem diline göre Türkçe ya da İngilizce açılır; **Ayarlar → Dil**'den
+değiştirebilirsin.
 
 DSL hat verilerini de görmek istiyorsan **Ayarlar → Modem izleme**'yi işaretle, modem
 şifreni (modem web arayüzüne girdiğin şifre — Wi-Fi şifresi değil) yaz,

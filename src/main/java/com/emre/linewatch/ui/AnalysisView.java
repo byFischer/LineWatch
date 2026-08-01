@@ -1,5 +1,6 @@
 package com.emre.linewatch.ui;
 
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.SampleRepository;
@@ -27,17 +28,16 @@ import java.util.concurrent.Executors;
  */
 public class AnalysisView extends VBox {
 
-    private static final String[] DAYS = {"Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"};
     private static final int RAMP_STEPS = 9;
 
     private final SampleRepository samples;
     private final EventRepository events;
 
-    private final Segmented metric = new Segmented("CRC hata artışı", "Kopma sayısı");
-    private final Segmented period = new Segmented("Son 7 gün", "Son 30 gün");
+    private final Segmented metric = new Segmented(I18n.t("analysis.metricCrc"), I18n.t("analysis.metricDrops"));
+    private final Segmented period = new Segmented(I18n.t("analysis.period7"), I18n.t("analysis.period30"));
     private final HeatMap heat = new HeatMap();
     private final Label total = Ui.faint("");
-    private final Label hover = Ui.muted("Hücrenin üzerine gel");
+    private final Label hover = Ui.muted(I18n.t("analysis.hint"));
     private final VBox worst = new VBox(6);
     private final List<Region> rampCells = new ArrayList<>();
 
@@ -56,15 +56,15 @@ public class AnalysisView extends VBox {
 
         metric.setOnSelect(i -> reload());
         period.setOnSelect(i -> reload());
-        HBox toolbar = Ui.row(14, Ui.cardTitle("METRİK"), metric,
-                Ui.cardTitle("DÖNEM"), period, Ui.hSpacer(), hover);
+        HBox toolbar = Ui.row(14, Ui.cardTitle(I18n.t("analysis.metric")), metric,
+                Ui.cardTitle(I18n.t("analysis.period")), period, Ui.hSpacer(), hover);
 
-        heat.setOnHover(text -> hover.setText(text == null ? "Hücrenin üzerine gel" : text));
+        heat.setOnHover(text -> hover.setText(text == null ? I18n.t("analysis.hint") : text));
         VBox heatCard = Ui.card(12, heat, Ui.row(16, buildLegend(), Ui.hSpacer(), total));
         VBox.setVgrow(heat, Priority.ALWAYS);
         VBox.setVgrow(heatCard, Priority.ALWAYS);
 
-        VBox worstCard = Ui.card(10, Ui.cardTitle("EN YOĞUN SAAT DİLİMLERİ"), worst);
+        VBox worstCard = Ui.card(10, Ui.cardTitle(I18n.t("analysis.worstTitle")), worst);
 
         getChildren().addAll(toolbar, heatCard, worstCard);
 
@@ -82,7 +82,7 @@ public class AnalysisView extends VBox {
             ramp.getChildren().add(cell);
         }
         paintRamp();
-        return Ui.row(8, Ui.faint("az"), ramp, Ui.faint("çok"));
+        return Ui.row(8, Ui.faint(I18n.t("analysis.less")), ramp, Ui.faint(I18n.t("analysis.more")));
     }
 
     private void paintRamp() {
@@ -136,14 +136,13 @@ public class AnalysisView extends VBox {
                 final double fMax = max;
                 final double fSum = sum;
                 Platform.runLater(() -> {
-                    String unit = crcMode ? "CRC" : "kopma";
+                    String unit = I18n.t(crcMode ? "analysis.unitCrc" : "analysis.unitDrops");
                     heat.setData(matrix, fMax, unit);
-                    total.setText("son " + days + " gün toplamı: "
-                            + Fmt.count(Math.round(fSum)) + " " + unit);
+                    total.setText(I18n.t("analysis.total", days, Fmt.count(Math.round(fSum)), unit));
                     renderWorst(top, unit, fSum);
                 });
             } catch (Exception e) {
-                Platform.runLater(() -> total.setText("Veri yüklenemedi: " + e.getMessage()));
+                Platform.runLater(() -> total.setText(I18n.t("analysis.loadError", e.getMessage())));
             }
         });
     }
@@ -151,13 +150,13 @@ public class AnalysisView extends VBox {
     private void renderWorst(List<Cell> top, String unit, double sum) {
         worst.getChildren().clear();
         if (top.isEmpty() || sum <= 0) {
-            worst.getChildren().add(Ui.faint("Bu dönemde kayda değer bir yoğunluk yok."));
+            worst.getChildren().add(Ui.faint(I18n.t("analysis.noData")));
             return;
         }
         for (Cell cell : top) {
-            Label when = Ui.body(DAYS[cell.day()] + " " + String.format("%02d:00", cell.hour()));
+            Label when = Ui.body(Fmt.dayShortName(cell.day()) + " " + String.format("%02d:00", cell.hour()));
             Label value = Ui.muted(Fmt.count(Math.round(cell.value())) + " " + unit);
-            Label share = Ui.faint("toplamın " + Fmt.pct0(100.0 * cell.value() / sum) + "'i");
+            Label share = Ui.faint(I18n.t("analysis.share", Fmt.pct0(100.0 * cell.value() / sum)));
             worst.getChildren().add(Ui.row(10, when, Ui.hSpacer(), value, share));
         }
     }

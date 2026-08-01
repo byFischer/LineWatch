@@ -29,10 +29,13 @@ import java.util.concurrent.TimeUnit;
 public final class Theme {
 
     public enum Mode {
-        AUTO("Sistemle aynı"), DARK("Koyu"), LIGHT("Açık");
+        AUTO("theme.auto"), DARK("theme.dark"), LIGHT("theme.light");
 
-        public final String label;
-        Mode(String label) { this.label = label; }
+        private final String key;
+
+        Mode(String key) { this.key = key; }
+
+        public String label() { return com.emre.linewatch.config.I18n.t(key); }
     }
 
     /** Canvas cizimleri icin renk paleti; CSS'teki -lw-* degiskenlerinin aynasi. */

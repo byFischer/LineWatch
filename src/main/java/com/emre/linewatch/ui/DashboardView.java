@@ -2,6 +2,7 @@ package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -43,11 +44,11 @@ public class DashboardView extends ScrollPane {
 
     // saglik karti
     private final Circle dot = Ui.dot(5, "unknown");
-    private final Label statusText = new Label("BEKLENİYOR");
+    private final Label statusText = new Label(I18n.t("status.waiting"));
     private final Label modulation = Ui.faint("");
     private final Label updated = Ui.faint("");
-    private final Label headline = new Label("Hat durumu bekleniyor");
-    private final Label detail = new Label("Modemden ilk ölçüm bekleniyor.");
+    private final Label headline = new Label(I18n.t("dash.waitingHeadline"));
+    private final Label detail = new Label(I18n.t("dash.waitingDetail"));
     private final Label grade = new Label("—");
     private final Label scoreText = new Label("");
     private final Label lastEvent = Ui.faint("");
@@ -55,27 +56,27 @@ public class DashboardView extends ScrollPane {
     // 24 saat
     private final UptimeStrip strip = new UptimeStrip();
     private final Label uptimePct = new Label("—");
-    private final Label uptimeInfo = Ui.faint("son 24 saat");
+    private final Label uptimeInfo = Ui.faint(I18n.t("dash.last24h"));
     private final Label uninterrupted = Ui.faint("");
 
     // canli grafik
     private final TimeChart liveChart = new TimeChart().unit("dB").timeAxis(true);
 
     // metrikler
-    private final MetricCard snrCard = new MetricCard("SNR MARJI");
-    private final MetricCard syncCard = new MetricCard("SENKRON HIZI");
-    private final MetricCard crcCard = new MetricCard("CRC HATALARI", true, true);
-    private final MetricCard attenCard = new MetricCard("ZAYIFLAMA");
-    private final MetricCard capacityCard = new MetricCard("HAT KAPASİTESİ");
-    private final MetricCard todayCard = new MetricCard("BUGÜN", false, false);
+    private final MetricCard snrCard = new MetricCard(I18n.t("dash.snr"));
+    private final MetricCard syncCard = new MetricCard(I18n.t("dash.sync"));
+    private final MetricCard crcCard = new MetricCard(I18n.t("dash.crc"), true, true);
+    private final MetricCard attenCard = new MetricCard(I18n.t("dash.atten"));
+    private final MetricCard capacityCard = new MetricCard(I18n.t("dash.capacity"));
+    private final MetricCard todayCard = new MetricCard(I18n.t("dash.today"), false, false);
 
     // internet erisim metrikleri (modem desteklenmese de dolar)
-    private final MetricCard latencyCard = new MetricCard("GECİKME");
-    private final MetricCard jitterCard = new MetricCard("JİTTER");
-    private final MetricCard lossCard = new MetricCard("PAKET KAYBI", true, true);
+    private final MetricCard latencyCard = new MetricCard(I18n.t("dash.latency"));
+    private final MetricCard jitterCard = new MetricCard(I18n.t("dash.jitter"));
+    private final MetricCard lossCard = new MetricCard(I18n.t("dash.loss"), true, true);
 
     private final GridPane bento = new GridPane();
-    private final Label liveTitle = Ui.cardTitle("SON 60 DAKİKA · SNR MARJI");
+    private final Label liveTitle = Ui.cardTitle(I18n.t("dash.liveSnr"));
     private VBox heroCard;
     private VBox uptimeCard;
     private VBox liveCard;
@@ -98,7 +99,7 @@ public class DashboardView extends ScrollPane {
     private volatile long lastSampleTs;
     private Timeline pulse;
     /** Serit uzerinde fare yokken alt satirda gosterilen ozet. */
-    private String summaryText = "son 24 saat";
+    private String summaryText = I18n.t("dash.last24h");
 
     public DashboardView(SampleRepository samples, NetSampleRepository netSamples,
                          EventRepository events, Settings settings) {
@@ -129,7 +130,7 @@ public class DashboardView extends ScrollPane {
 
         // "son guncelleme 4 sn once" metnini saniye basinda tazele
         Timeline ticker = new Timeline(new javafx.animation.KeyFrame(Duration.seconds(1),
-                e -> { if (lastSampleTs > 0) updated.setText("son güncelleme " + Fmt.ago(lastSampleTs)); }));
+                e -> { if (lastSampleTs > 0) updated.setText(I18n.t("dash.updated", Fmt.ago(lastSampleTs))); }));
         ticker.setCycleCount(Timeline.INDEFINITE);
         ticker.play();
     }
@@ -168,15 +169,15 @@ public class DashboardView extends ScrollPane {
     private VBox buildUptimeCard() {
         uptimePct.getStyleClass().add("metric-value");
         strip.setOnHover(text -> uptimeInfo.setText(text == null ? summaryText : text));
-        return Ui.card(9, Ui.cardTitle("SON 24 SAAT"),
-                Ui.row(7, uptimePct, Ui.faint("çalışma oranı")),
+        return Ui.card(9, Ui.cardTitle(I18n.t("dash.uptimeTitle")),
+                Ui.row(7, uptimePct, Ui.faint(I18n.t("dash.uptimeRate"))),
                 strip, uptimeInfo, uninterrupted);
     }
 
     private VBox buildLiveCard() {
         liveChart.setPrefHeight(168);
         liveChart.setSeries(List.of());
-        liveLegend = Ui.row(14, legendItem("Aşağı yön", Role.DOWN), legendItem("Yukarı yön", Role.UP));
+        liveLegend = Ui.row(14, legendItem(I18n.t("common.down"), Role.DOWN), legendItem(I18n.t("common.up"), Role.UP));
         VBox card = Ui.card(10,
                 Ui.row(10, liveTitle, Ui.hSpacer(), liveLegend),
                 liveChart);
@@ -210,7 +211,7 @@ public class DashboardView extends ScrollPane {
             add(bento, lossCard, 2, 2, 1);
         }
 
-        liveTitle.setText(modemMonitored ? "SON 60 DAKİKA · SNR MARJI" : "SON 60 DAKİKA · GECİKME");
+        liveTitle.setText(I18n.t(modemMonitored ? "dash.liveSnr" : "dash.liveLatency"));
         liveChart.unit(modemMonitored ? "dB" : "ms");
         liveLegend.setVisible(modemMonitored);
         liveLegend.setManaged(modemMonitored);
@@ -227,12 +228,11 @@ public class DashboardView extends ScrollPane {
         rebuildLayout();
         if (!on) {
             // DSL'e ozgu metinler modemsiz modda anlamsiz kaliyor
-            statusText.setText("İNTERNET İZLENİYOR");
+            statusText.setText(I18n.t("status.netMonitoring"));
             statusText.getStyleClass().removeAll("up", "down", "warn");
-            modulation.setText("modem yapılandırılmadı");
-            headline.setText("Modem izlenmiyor");
-            detail.setText("Ayarlar'dan modem şifresini girersen hat kalitesi (SNR, senkron hızı, "
-                    + "CRC) de izlenir. Şu an yalnızca internet erişimi ölçülüyor.");
+            modulation.setText(I18n.t("dash.modemNotConfigured"));
+            headline.setText(I18n.t("dash.modemOffHeadline"));
+            detail.setText(I18n.t("dash.modemOffDetail"));
             grade.setText("—");
             grade.setStyle("");
             scoreText.setText("");
@@ -258,38 +258,38 @@ public class DashboardView extends ScrollPane {
         Platform.runLater(() -> {
             boolean up = s.isUp();
             Ui.setDotKind(dot, up ? "up" : "down");
-            statusText.setText(up ? "HAT AKTİF" : "HAT KOPUK");
+            statusText.setText(I18n.t(up ? "status.lineUp" : "status.lineDown"));
             statusText.getStyleClass().removeAll("up", "down", "warn");
             statusText.getStyleClass().add(up ? "up" : "down");
             modulation.setText(s.modulation() + " · " + s.status());
-            updated.setText("son güncelleme " + Fmt.ago(s.ts()));
+            updated.setText(I18n.t("dash.updated", Fmt.ago(s.ts())));
             startPulse(up);
 
             double snrDown = s.snrDown() / 10.0;
             snrCard.setValue(snrDown, Fmt::dec1);
             snrCard.setUnit("dB");
-            snrCard.setSub("yukarı yön " + Fmt.dec1(s.snrUp() / 10.0) + " dB");
+            snrCard.setSub(I18n.t("dash.snrSub", Fmt.dec1(s.snrUp() / 10.0)));
             snrCard.setState(snrDown < 6 ? "bad" : snrDown < 9 ? "warn" : "good");
 
             syncCard.setValue(s.syncDown() / 1000.0, Fmt::dec1);
             syncCard.setUnit("Mbps");
-            syncCard.setSub("yukarı yön " + Fmt.dec1(s.syncUp() / 1000.0) + " Mbps");
+            syncCard.setSub(I18n.t("dash.syncSub", Fmt.dec1(s.syncUp() / 1000.0)));
 
             crcCard.setValue(s.crcDown(), v -> Fmt.count(Math.round(v)));
-            crcCard.setSub("kümülatif · yukarı yön " + Fmt.count(s.crcUp()));
+            crcCard.setSub(I18n.t("dash.crcSub", Fmt.count(s.crcUp())));
             if (prev != null && s.crcDown() > prev.crcDown()) {
                 crcCard.setDelta(Fmt.signed(s.crcDown() - prev.crcDown()), "down");
             } else if (prev != null) {
-                crcCard.setDelta("sabit", null);
+                crcCard.setDelta(I18n.t("dash.crcFlat"), null);
             }
 
             attenCard.setValue(Fmt.pair1(s.attenDown() / 10.0, s.attenUp() / 10.0));
             attenCard.setUnit("dB");
-            attenCard.setSub("çıkış gücü " + Fmt.pair1(s.powerDown() / 10.0, s.powerUp() / 10.0) + " dBm");
+            attenCard.setSub(I18n.t("dash.attenSub", Fmt.pair1(s.powerDown() / 10.0, s.powerUp() / 10.0)));
 
             double ratio = s.maxRateDown() > 0 ? 100.0 * s.syncDown() / s.maxRateDown() : 0;
             capacityCard.setValue(ratio, Fmt::pct0);
-            capacityCard.setSub(Fmt.dec1(s.maxRateDown() / 1000.0) + " Mbps kapasitenin kullanımı");
+            capacityCard.setSub(I18n.t("dash.capacitySub", Fmt.dec1(s.maxRateDown() / 1000.0)));
             capacityCard.setState(ratio < 60 ? "warn" : null);
         });
 
@@ -309,12 +309,12 @@ public class DashboardView extends ScrollPane {
     public void showError(String message) {
         Platform.runLater(() -> {
             Ui.setDotKind(dot, "down");
-            statusText.setText("BAĞLANTI SORUNU");
+            statusText.setText(I18n.t("dash.connError"));
             statusText.getStyleClass().removeAll("up", "down", "warn");
             statusText.getStyleClass().add("down");
             if (pulse != null) pulse.stop();
             dot.setOpacity(1);
-            headline.setText("Modeme ulaşılamıyor");
+            headline.setText(I18n.t("dash.modemUnreachableHeadline"));
             detail.setText(message == null ? "" : message);
             grade.setText("—");
             grade.setStyle("");
@@ -355,17 +355,17 @@ public class DashboardView extends ScrollPane {
                     strip.setData(states, dayAgo, DAY_MS / STRIP_BLOCKS);
                     uptimePct.setText(Fmt.pct1(uptime));
                     summaryText = drops24h == 0
-                            ? "son 24 saatte kopma yok"
-                            : "son 24 saatte " + drops24h + " kopma";
+                            ? I18n.t("dash.noDrops24h")
+                            : I18n.t("dash.drops24h", drops24h);
                     uptimeInfo.setText(summaryText);
                     uninterrupted.setText(lastDownTs > 0
-                            ? "kesintisiz: " + Fmt.uptime(now - lastDownTs)
-                            : "kayıtlarda kopma yok");
+                            ? I18n.t("dash.uninterrupted", Fmt.uptime(now - lastDownTs))
+                            : I18n.t("dash.noDropsRecorded"));
 
                     liveChart.setRange(hourAgo, now);
                     liveChart.setSeries(List.of(
-                            new TimeChart.Series("Aşağı", Role.DOWN, series.ts(), series.snrDown(), true),
-                            new TimeChart.Series("Yukarı", Role.UP, series.ts(), series.snrUp(), false)));
+                            new TimeChart.Series(I18n.t("common.downShort"), Role.DOWN, series.ts(), series.snrDown(), true),
+                            new TimeChart.Series(I18n.t("common.upShort"), Role.UP, series.ts(), series.snrUp(), false)));
 
                     if (snrCard.sparkline() != null) snrCard.sparkline().setValues(series.snrDown());
                     if (syncCard.sparkline() != null) syncCard.sparkline().role(Role.DOWN)
@@ -378,15 +378,15 @@ public class DashboardView extends ScrollPane {
                             .setValues(series.capacity());
 
                     todayCard.setValue(dropsToday, v -> Fmt.count(Math.round(v)));
-                    todayCard.setUnit("kopma");
+                    todayCard.setUnit(I18n.t("dash.todayUnit"));
                     todayCard.setState(dropsToday > 0 ? "bad" : "good");
-                    todayCard.setSub("gece yarısından beri " + Fmt.count(crcToday) + " CRC artışı");
+                    todayCard.setSub(I18n.t("dash.todaySub", Fmt.count(crcToday)));
 
                     if (!recent.isEmpty()) {
                         LineEvent e = recent.get(0);
-                        lastEvent.setText("Son olay: " + e.type().label + " · " + Fmt.dateTime(e.ts()));
+                        lastEvent.setText(I18n.t("dash.lastEvent", e.type().label(), Fmt.dateTime(e.ts())));
                     } else {
-                        lastEvent.setText("Henüz kayıtlı olay yok.");
+                        lastEvent.setText(I18n.t("dash.noEvents"));
                     }
                 });
             } catch (Exception e) {
@@ -527,12 +527,13 @@ public class DashboardView extends ScrollPane {
             latencyCard.setUnit("ms");
             latencyCard.setState(n.latencyMs() > warnMs ? "bad"
                     : n.latencyMs() > warnMs * 0.6 ? "warn" : "good");
-            latencyCard.setSub(n.target().isBlank() ? "TCP yoklaması" : n.target() + " · TCP yoklaması");
+            latencyCard.setSub(n.target().isBlank()
+                    ? I18n.t("dash.latencySubNoTarget") : I18n.t("dash.latencySub", n.target()));
         } else {
             latencyCard.setValue("—");
             latencyCard.setUnit("");
             latencyCard.setState("bad");
-            latencyCard.setSub("erişim yok");
+            latencyCard.setSub(I18n.t("dash.noAccess"));
         }
 
         if (n.hasJitter()) {
@@ -541,18 +542,19 @@ public class DashboardView extends ScrollPane {
             jitterCard.setValue(n.jitterMs(), Fmt::dec1);
             jitterCard.setUnit("ms");
             jitterCard.setState(n.jitterMs() > 30 ? "bad" : n.jitterMs() > 10 ? "warn" : "good");
+            jitterCard.setSub(I18n.t("dash.jitterSub"));
             // Alt yazi arka planda son 1 saatin gecikme araligiyla doldurulur.
         } else {
             jitterCard.setValue("—");
             jitterCard.setUnit("");
             jitterCard.setState(null);
-            jitterCard.setSub(n.online() ? "yedek hedef · hesaplanamadı" : "erişim yok");
+            jitterCard.setSub(I18n.t(n.online() ? "dash.jitterBackup" : "dash.noAccess"));
         }
 
         lossCard.setValue(n.lossPct(), Fmt::pct0);
         lossCard.setState(n.lossPct() >= settings.lossThresholdPct() ? "bad"
                 : n.lossPct() > 0 ? "warn" : "good");
-        lossCard.setSub(n.received() + "/" + n.sent() + " yoklama yanıtlandı");
+        lossCard.setSub(I18n.t("dash.lossSub", n.sent(), n.received()));
     }
 
     private void refreshNetBackground() {
@@ -589,7 +591,7 @@ public class DashboardView extends ScrollPane {
                 // Tur ici jitter cok dar bir pencereyi olcuyor; baglantinin gercekte
                 // ne kadar kararli oldugunu son bir saatin gecikme araligi gosteriyor.
                 String latencyRange = maxLatency >= 0
-                        ? "son 1 saat: " + Fmt.dec0(minLatency) + "–" + Fmt.dec0(maxLatency) + " ms"
+                        ? I18n.t("dash.jitterRange", Fmt.dec0(minLatency), Fmt.dec0(maxLatency))
                         : "";
 
                 Platform.runLater(() -> {
@@ -615,11 +617,11 @@ public class DashboardView extends ScrollPane {
                         uptimePct.setText(Fmt.pct1(day.onlinePct()));
                     }
                     summaryText = day.hasData() && day.avgLatencyMs() >= 0
-                            ? "ortalama gecikme " + Fmt.dec0(day.avgLatencyMs()) + " ms"
-                            : "ölçümler toplanıyor";
+                            ? I18n.t("dash.avgLatency", Fmt.dec0(day.avgLatencyMs()))
+                            : I18n.t("dash.collectingShort");
                     uptimeInfo.setText(summaryText);
                     uninterrupted.setText(day.hasData()
-                            ? day.samples() + " ölçüm · kayıp " + Fmt.pct0(day.avgLossPct())
+                            ? I18n.t("dash.netSamples", day.samples(), Fmt.pct0(day.avgLossPct()))
                             : "");
                     applyNetHealth(day);
                 });
@@ -640,36 +642,35 @@ public class DashboardView extends ScrollPane {
 
         Ui.setDotKind(dot, state);
         startPulse(online);
-        statusText.setText(!online ? "İNTERNET YOK" : slow ? "BAĞLANTI ZAYIF" : "İNTERNET VAR");
+        statusText.setText(I18n.t(!online ? "status.netDown" : slow ? "status.netWeak" : "status.netUp"));
         statusText.getStyleClass().removeAll("up", "down", "warn");
         statusText.getStyleClass().add(state);
         modulation.setText(now.target().isBlank()
-                ? "modem izlenmiyor"
-                : now.target() + " · modem izlenmiyor");
-        updated.setText("son güncelleme " + Fmt.ago(now.ts()));
+                ? I18n.t("dash.modemOffHeadline")
+                : I18n.t("dash.netTargetAndModemOff", now.target()));
+        updated.setText(I18n.t("dash.updated", Fmt.ago(now.ts())));
 
-        headline.setText(!online ? "İnternet erişimi yok"
-                : slow ? "Bağlantı yavaş" : "İnternet erişimi sorunsuz");
+        headline.setText(I18n.t(!online ? "dash.netDownHeadline"
+                : slow ? "dash.netSlowHeadline" : "dash.netOkHeadline"));
 
         StringBuilder text = new StringBuilder();
         if (day.hasData()) {
-            text.append("Son 24 saatte ").append(Fmt.pct1(day.onlinePct())).append(" erişim");
+            text.append(I18n.t("dash.netSummary", Fmt.pct1(day.onlinePct())));
             if (day.avgLatencyMs() >= 0) {
-                text.append(", ortalama gecikme ").append(Fmt.dec0(day.avgLatencyMs())).append(" ms");
+                text.append(I18n.t("dash.netSummaryLatency", Fmt.dec0(day.avgLatencyMs())));
             }
             if (day.avgLossPct() > 0) {
-                text.append(", paket kaybı ").append(Fmt.pct0(day.avgLossPct()));
+                text.append(I18n.t("dash.netSummaryLoss", Fmt.pct0(day.avgLossPct())));
             }
             text.append(". ");
         } else {
-            text.append("Ölçümler toplanıyor. ");
+            text.append(I18n.t("dash.collecting")).append(' ');
         }
-        text.append("Hat kalitesini (SNR, senkron hızı, CRC) de izlemek için "
-                + "Ayarlar'dan modem şifreni gir.");
+        text.append(I18n.t("dash.netHint"));
         detail.setText(text.toString());
 
-        grade.setText(now.hasLatency() ? Fmt.dec0(now.latencyMs()) : "—");
-        scoreText.setText(now.hasLatency() ? "ms gecikme" : "");
+        grade.setText(now.hasLatency() ? Fmt.dec0(now.latencyMs()) : I18n.t("common.dash"));
+        scoreText.setText(now.hasLatency() ? I18n.t("dash.msLatency") : "");
         Theme.Palette p = Theme.palette();
         grade.setStyle("-fx-text-fill: "
                 + toHex(!online ? p.bad() : slow ? p.warn() : p.good()) + ";");

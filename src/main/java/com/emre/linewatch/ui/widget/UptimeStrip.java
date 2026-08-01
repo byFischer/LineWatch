@@ -1,5 +1,6 @@
 package com.emre.linewatch.ui.widget;
 
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.ui.Fmt;
 import com.emre.linewatch.ui.Theme;
 import javafx.scene.canvas.GraphicsContext;
@@ -71,9 +72,9 @@ public class UptimeStrip extends CanvasPane {
         if (idx < 0 || idx >= states.length) return null;
         long start = from + (long) idx * blockMs;
         String label = switch (states[idx]) {
-            case UP -> "sorunsuz";
-            case DOWN -> "kopma veya sorun";
-            default -> "veri yok";
+            case UP -> I18n.t("widget.stripOk");
+            case DOWN -> I18n.t("widget.stripDown");
+            default -> I18n.t("widget.stripUnknown");
         };
         return Fmt.time(start) + " – " + Fmt.time(start + blockMs) + "   " + label;
     }
@@ -121,7 +122,7 @@ public class UptimeStrip extends CanvasPane {
             g.fillText(Fmt.time(ts), frac * w, BAR_H + LABEL_H - 4);
         }
         g.setTextAlign(TextAlignment.RIGHT);
-        g.fillText("şimdi", w, BAR_H + LABEL_H - 4);
+        g.fillText(I18n.t("widget.now"), w, BAR_H + LABEL_H - 4);
         g.setTextAlign(TextAlignment.LEFT);
     }
 }

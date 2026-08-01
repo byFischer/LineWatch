@@ -94,6 +94,8 @@ simgesine sağ tıkla → **Çıkış**.
 - **Bildirimler** — Windows toast + Telegram (hat koptuğunda internet olmadığı için
   Telegram mesajı kuyruğa alınır, hat gelince "X dk kesinti" bilgisiyle iletilir)
 - **Modem yeniden başlatma** — sol menüdeki düğmeden
+- **Türkçe / İngilizce arayüz** — varsayılan olarak sistem dilini izler,
+  **Ayarlar → Dil**'den değiştirilebilir
 
 Modem izleme kapalıyken Pano ve Grafikler internet ölçümlerine geçer; DSL'e özel
 kartlar hiç gösterilmez.
@@ -209,7 +211,9 @@ Issue ve pull request'ler açık. En çok işe yarayacak katkılar:
 
 - **Farklı TP-Link modellerinde test** — modelini ve sonucu issue'da paylaş
 - **Yeni modem desteği** — `ModemCollector` arayüzünü uygulaman yeterli
-- **Çeviri** — arayüz şu an yalnızca Türkçe
+- **Yeni dil** — arayüz Türkçe ve İngilizce; yeni bir dil eklemek için
+  `src/main/resources/com/emre/linewatch/i18n/messages_tr.properties` dosyasını
+  kopyalayıp çevirmen yeterli
 
 ## Lisans
 
@@ -238,8 +242,9 @@ high latency, packet loss) and notifies you via Windows toast and Telegram. It l
 in the system tray. If your modem isn't supported, turn off modem monitoring in
 Settings — the dashboard and charts switch to internet measurements.
 
-The user interface is currently Turkish only. Requires Windows 10/11 x64; no Java
-installation needed (the runtime is bundled).
+**The interface is available in English and Turkish** — it follows your system
+language by default and can be switched under Settings. Requires Windows 10/11 x64;
+no Java installation needed (the runtime is bundled).
 
 Grab the latest build from
 [Releases](https://github.com/byFischer/LineWatch/releases/latest).

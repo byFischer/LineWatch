@@ -116,7 +116,7 @@ public class EventLane extends CanvasPane {
 
         if (marks.isEmpty()) {
             g.setFill(p.textFaint());
-            g.fillText("bu aralıkta olay yok", PAD_L + 4, DOT_Y + 18);
+            g.fillText(com.emre.linewatch.config.I18n.t("widget.noEventsInRange"), PAD_L + 4, DOT_Y + 18);
         }
 
         // etiketleri ust uste bindirmemek icin son yazilan x'i takip et

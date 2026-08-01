@@ -151,7 +151,7 @@ public class TimeChart extends CanvasPane {
             g.setFill(p.textFaint());
             g.setTextAlign(TextAlignment.CENTER);
             g.setTextBaseline(VPos.CENTER);
-            g.fillText("Bu aralıkta veri yok", w / 2, h / 2);
+            g.fillText(com.emre.linewatch.config.I18n.t("widget.noDataInRange"), w / 2, h / 2);
             g.setTextAlign(TextAlignment.LEFT);
             g.setTextBaseline(VPos.BASELINE);
             return;

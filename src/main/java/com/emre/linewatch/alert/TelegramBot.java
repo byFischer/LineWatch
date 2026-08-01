@@ -3,6 +3,7 @@ package com.emre.linewatch.alert;
 import com.emre.linewatch.MonitorService;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -91,7 +92,7 @@ public class TelegramBot {
         } else if (text.startsWith("/olaylar")) {
             notifier.sendDirect(eventsText());
         } else if (text.startsWith("/yardim") || text.startsWith("/help") || text.startsWith("/start")) {
-            notifier.sendDirect("LineWatch komutlari:\n/durum — anlik hat ve internet durumu\n/olaylar — son 5 olay\n/yardim — bu mesaj");
+            notifier.sendDirect(I18n.t("telegram.help"));
         }
     }
 
@@ -99,32 +100,28 @@ public class TelegramBot {
     private String statusText() {
         LineSample s = monitor.lastSample();
         NetSample n = monitor.lastNet();
-        if (s == null && n == null) return "Henuz veri toplanmadi.";
+        if (s == null && n == null) return I18n.t("telegram.noData");
 
         StringBuilder sb = new StringBuilder();
         long ts = s != null ? s.ts() : n.ts();
         boolean ok = s != null ? s.isUp() : n.online();
-        sb.append(ok ? "✅" : "❌").append(" LineWatch durum (")
-                .append(new SimpleDateFormat("HH:mm:ss").format(new Date(ts))).append(")");
+        sb.append(I18n.t("telegram.statusHeader", ok ? "✅" : "❌",
+                new SimpleDateFormat("HH:mm:ss").format(new Date(ts))));
 
         if (s != null) {
-            sb.append(String.format(
-                    "%nHat: %s (%s)%n"
-                            + "Sync: %.1f / %.1f Mbps%n"
-                            + "SNR: %.1f / %.1f dB%n"
-                            + "CRC: %,d (down) / %,d (up)",
-                    s.status(), s.modulation(),
-                    s.syncDown() / 1000.0, s.syncUp() / 1000.0,
-                    s.snrDown() / 10.0, s.snrUp() / 10.0,
-                    s.crcDown(), s.crcUp()));
+            sb.append('\n').append(I18n.t("telegram.line", s.status(), s.modulation()))
+                    .append('\n').append(I18n.t("telegram.sync", s.syncDown() / 1000.0, s.syncUp() / 1000.0))
+                    .append('\n').append(I18n.t("telegram.snr", s.snrDown() / 10.0, s.snrUp() / 10.0))
+                    .append('\n').append(I18n.t("telegram.crc", s.crcDown(), s.crcUp()));
         }
         if (n != null) {
-            sb.append(String.format("%nInternet: %s", n.online() ? "var" : "yok"));
+            sb.append('\n').append(I18n.t("telegram.internet",
+                    I18n.t(n.online() ? "telegram.internetYes" : "telegram.internetNo")));
             if (n.hasLatency()) {
-                sb.append(String.format("%nGecikme: %.0f ms", n.latencyMs()));
-                if (n.hasJitter()) sb.append(String.format(" (jitter %.0f ms)", n.jitterMs()));
+                sb.append('\n').append(I18n.t("telegram.latency", n.latencyMs()));
+                if (n.hasJitter()) sb.append(I18n.t("telegram.jitter", n.jitterMs()));
             }
-            sb.append(String.format("%nPaket kaybi: %%%d", n.lossPct()));
+            sb.append('\n').append(I18n.t("telegram.loss", n.lossPct()));
         }
         return sb.toString();
     }
@@ -132,11 +129,11 @@ public class TelegramBot {
     private String eventsText() {
         try {
             List<LineEvent> list = events.findRecent(5);
-            if (list.isEmpty()) return "Henuz olay yok.";
-            StringBuilder sb = new StringBuilder("Son olaylar:\n");
+            if (list.isEmpty()) return I18n.t("telegram.noEvents");
+            StringBuilder sb = new StringBuilder(I18n.t("telegram.recentEvents")).append('\n');
             SimpleDateFormat fmt = new SimpleDateFormat("dd.MM HH:mm");
             for (LineEvent e : list) {
-                sb.append(fmt.format(new Date(e.ts()))).append(" — ").append(e.type().label);
+                sb.append(fmt.format(new Date(e.ts()))).append(" — ").append(e.type().label());
                 if (e.detail() != null && !e.detail().isBlank()) {
                     String d = e.detail();
                     sb.append(": ").append(d.length() > 80 ? d.substring(0, 80) + "..." : d);

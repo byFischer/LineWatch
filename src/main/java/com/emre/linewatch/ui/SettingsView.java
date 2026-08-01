@@ -2,6 +2,7 @@ package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.TpLinkCollector;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.config.StartupManager;
 import javafx.application.Platform;
@@ -35,14 +36,15 @@ public class SettingsView extends ScrollPane {
     private final TextField latencyThreshold = new TextField();
     private final TextField lossThreshold = new TextField();
     private final TextField cooldown = new TextField();
-    private final CheckBox monitorModem = new CheckBox("Modem izleme");
-    private final CheckBox monitorNet = new CheckBox("İnternet erişimini ölç");
-    private final CheckBox toast = new CheckBox("Windows bildirimi (toast)");
-    private final CheckBox telegram = new CheckBox("Telegram bildirimi");
+    private final CheckBox monitorModem = new CheckBox(I18n.t("settings.modemEnabled"));
+    private final CheckBox monitorNet = new CheckBox(I18n.t("settings.netEnabled"));
+    private final CheckBox toast = new CheckBox(I18n.t("settings.toast"));
+    private final CheckBox telegram = new CheckBox(I18n.t("settings.telegram"));
     private final TextField tgToken = new TextField();
     private final TextField tgChatId = new TextField();
-    private final CheckBox autoStart = new CheckBox("Bilgisayar açıldığında LineWatch otomatik başlasın");
+    private final CheckBox autoStart = new CheckBox(I18n.t("settings.autoStart"));
     private final ComboBox<Theme.Mode> themeBox = new ComboBox<>();
+    private final ComboBox<Lang> languageBox = new ComboBox<>();
 
     private final Label testResult = Ui.faint("");
     private final Label saveStatus = Ui.faint("");
@@ -72,7 +74,7 @@ public class SettingsView extends ScrollPane {
         add(grid, notificationCard(), 1, 1);
         add(grid, appearanceCard(), 0, 2);
 
-        Button save = Ui.button("Kaydet ve uygula", null);
+        Button save = Ui.button(I18n.t("settings.save"), null);
         save.setOnAction(e -> save());
         HBox actions = Ui.row(12, save, saveStatus);
 
@@ -93,59 +95,57 @@ public class SettingsView extends ScrollPane {
     private VBox modemCard() {
         host.setPromptText("http://192.168.1.1");
 
-        Button test = Ui.button("Bağlantıyı test et", Icons.plug(Icons.SM), "subtle");
+        Button test = Ui.button(I18n.t("settings.testConnection"), Icons.plug(Icons.SM), "subtle");
         test.setOnAction(e -> testConnection(test));
 
         // Modem izleme kapaliyken alanlar soluklasir; uygulama internet olcumuyle
         // calismaya devam ettigi icin bu bir hata durumu degil, bilincli bir tercih.
         VBox fields = new VBox(12,
-                field("Modem adresi", host),
-                field("Modem şifresi", passwordField()),
+                field(I18n.t("settings.modemHost"), host),
+                field(I18n.t("settings.modemPassword"), passwordField()),
                 Ui.row(10, test, testResult));
         fields.disableProperty().bind(monitorModem.selectedProperty().not());
 
         return Ui.card(12,
-                Ui.cardTitle("MODEM"),
+                Ui.cardTitle(I18n.t("settings.modem")),
                 monitorModem,
                 fields,
-                Ui.faint("Kapatırsan SNR / senkron / CRC izlenmez; internet ölçümü sürer. "
-                        + "Test, izleyicinin modem oturumunu tazeler — ölçüm bir turluk gecikebilir."));
+                Ui.faint(I18n.t("settings.modemHint")));
     }
 
     private VBox netCard() {
         poll.setPromptText("15");
         return Ui.card(12,
-                Ui.cardTitle("İNTERNET ÖLÇÜMÜ"),
+                Ui.cardTitle(I18n.t("settings.net")),
                 monitorNet,
-                Ui.faint("Bilinen sunuculara TCP yoklaması yapılır; gecikme, jitter ve paket "
-                        + "kaybı ölçülür. Modem desteklenmiyorsa da çalışır."),
-                field("Örnekleme aralığı", withSuffix(poll, "saniye")),
-                Ui.faint("Modem ve internet ölçümü aynı turda yapılır."));
+                Ui.faint(I18n.t("settings.netHint")),
+                field(I18n.t("settings.pollInterval"), withSuffix(poll, I18n.t("common.seconds"))),
+                Ui.faint(I18n.t("settings.pollHint")));
     }
 
     private VBox thresholdCard() {
         return Ui.card(12,
-                Ui.cardTitle("UYARI EŞİKLERİ"),
-                field("CRC artış eşiği", withSuffix(crcThreshold, "örnekleme başına")),
-                field("SNR alt sınırı", withSuffix(snrThreshold, "dB")),
-                field("Gecikme üst sınırı", withSuffix(latencyThreshold, "ms")),
-                field("Paket kaybı üst sınırı", withSuffix(lossThreshold, "%")),
-                field("Aynı bildirim için bekleme", withSuffix(cooldown, "dakika")),
-                Ui.faint("Eşik aşıldığında olay kaydedilir ve seçili bildirim kanalları tetiklenir."));
+                Ui.cardTitle(I18n.t("settings.thresholds")),
+                field(I18n.t("settings.crcThreshold"), withSuffix(crcThreshold, I18n.t("settings.perSample"))),
+                field(I18n.t("settings.snrThreshold"), withSuffix(snrThreshold, "dB")),
+                field(I18n.t("settings.latencyThreshold"), withSuffix(latencyThreshold, "ms")),
+                field(I18n.t("settings.lossThreshold"), withSuffix(lossThreshold, "%")),
+                field(I18n.t("settings.cooldown"), withSuffix(cooldown, I18n.t("common.minutes"))),
+                Ui.faint(I18n.t("settings.thresholdHint")));
     }
 
     private VBox notificationCard() {
-        tgToken.setPromptText("BotFather'dan alınan token");
-        tgChatId.setPromptText("chat_id (@userinfobot ile öğrenilebilir)");
+        tgToken.setPromptText(I18n.t("settings.botTokenPrompt"));
+        tgChatId.setPromptText(I18n.t("settings.chatIdPrompt"));
         tgToken.disableProperty().bind(telegram.selectedProperty().not());
         tgChatId.disableProperty().bind(telegram.selectedProperty().not());
 
         return Ui.card(12,
-                Ui.cardTitle("BİLDİRİMLER"),
+                Ui.cardTitle(I18n.t("settings.notifications")),
                 toast,
                 telegram,
-                field("Bot token", tgToken),
-                field("Chat id", tgChatId));
+                field(I18n.t("settings.botToken"), tgToken),
+                field(I18n.t("settings.chatId"), tgChatId));
     }
 
     private VBox appearanceCard() {
@@ -158,11 +158,55 @@ public class SettingsView extends ScrollPane {
             if (mode != null) Theme.setMode(mode);
         });
 
+        languageBox.getItems().setAll(Lang.values());
+        languageBox.setValue(Lang.of(settings.language()));
+        languageBox.setButtonCell(languageCell());
+        languageBox.setCellFactory(list -> languageCell());
+
         return Ui.card(12,
-                Ui.cardTitle("GÖRÜNÜM VE UYGULAMA"),
-                field("Tema", themeBox),
-                Ui.faint("\"Sistemle aynı\" seçiliyken Windows'un açık/koyu tercihi izlenir."),
+                Ui.cardTitle(I18n.t("settings.appearance")),
+                field(I18n.t("settings.theme"), themeBox),
+                Ui.faint(I18n.t("settings.themeHint")),
+                field(I18n.t("settings.language"), languageBox),
+                Ui.faint(I18n.t("settings.languageHint")),
                 autoStart);
+    }
+
+    /**
+     * Dil secenekleri. Ingilizce ve Turkce kendi adlariyla yazilir — kullanici
+     * anlamadigi bir dile dusmusse secenegi yine de taniyabilsin diye.
+     */
+    private enum Lang {
+        AUTO(I18n.AUTO), TR("tr"), EN("en");
+
+        final String tag;
+
+        Lang(String tag) { this.tag = tag; }
+
+        static Lang of(String tag) {
+            for (Lang l : values()) {
+                if (l.tag.equalsIgnoreCase(tag)) return l;
+            }
+            return AUTO;
+        }
+
+        String label() {
+            return switch (this) {
+                case AUTO -> I18n.t("settings.languageAuto");
+                case TR -> "Türkçe";
+                case EN -> "English";
+            };
+        }
+    }
+
+    private static javafx.scene.control.ListCell<Lang> languageCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Lang item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.label());
+            }
+        };
     }
 
     private static javafx.scene.control.ListCell<Theme.Mode> themeCell() {
@@ -170,7 +214,7 @@ public class SettingsView extends ScrollPane {
             @Override
             protected void updateItem(Theme.Mode item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? "" : item.label);
+                setText(empty || item == null ? "" : item.label());
             }
         };
     }
@@ -201,7 +245,7 @@ public class SettingsView extends ScrollPane {
         StackPane stack = new StackPane(password, passwordPlain);
         HBox.setHgrow(stack, Priority.ALWAYS);
 
-        Button toggle = Ui.iconButton(Icons.eye(Icons.SM), "Şifreyi göster", "button", "ghost");
+        Button toggle = Ui.iconButton(Icons.eye(Icons.SM), I18n.t("settings.showPassword"), "button", "ghost");
         toggle.setOnAction(e -> {
             passwordVisible = !passwordVisible;
             password.setVisible(!passwordVisible);
@@ -209,6 +253,7 @@ public class SettingsView extends ScrollPane {
             passwordPlain.setVisible(passwordVisible);
             passwordPlain.setManaged(passwordVisible);
             toggle.setGraphic(passwordVisible ? Icons.eyeOff(Icons.SM) : Icons.eye(Icons.SM));
+            Ui.install(toggle, I18n.t(passwordVisible ? "settings.hidePassword" : "settings.showPassword"));
         });
         return Ui.row(6, stack, toggle);
     }
@@ -236,7 +281,7 @@ public class SettingsView extends ScrollPane {
     private void testConnection(Button trigger) {
         trigger.setDisable(true);
         testResult.getStyleClass().setAll("faint");
-        testResult.setText("bağlanılıyor…");
+        testResult.setText(I18n.t("settings.connecting"));
         String hostValue = host.getText().trim();
         String passValue = password.getText();
 
@@ -247,11 +292,11 @@ public class SettingsView extends ScrollPane {
             try {
                 collector = new TpLinkCollector(hostValue, passValue);
                 LineSample sample = collector.collect();
-                message = "bağlantı başarılı · " + sample.modulation() + " · SNR "
-                        + Fmt.dec1(sample.snrDown() / 10.0) + " dB";
+                message = I18n.t("settings.testOk", sample.modulation(),
+                        Fmt.dec1(sample.snrDown() / 10.0));
                 style = "ok";
             } catch (Exception e) {
-                message = "başarısız: " + e.getMessage();
+                message = I18n.t("settings.testFail", e.getMessage());
                 style = "err";
             } finally {
                 if (collector != null) collector.close();
@@ -287,17 +332,18 @@ public class SettingsView extends ScrollPane {
             settings.telegramToken(tgToken.getText().trim());
             settings.telegramChatId(tgChatId.getText().trim());
             settings.theme(themeBox.getValue() == null ? "AUTO" : themeBox.getValue().name());
+            settings.language(languageBox.getValue() == null ? I18n.AUTO : languageBox.getValue().tag);
             settings.save();
             StartupManager.setEnabled(autoStart.isSelected());
 
             saveStatus.setStyle("-fx-text-fill: " + hex(Theme.palette().good()) + ";");
-            saveStatus.setText("Kaydedildi, izleme yeniden başlatıldı."
-                    + (autoStart.isSelected() ? " Otomatik başlatma açık." : ""));
+            String saved = I18n.t("settings.saved");
+            saveStatus.setText(autoStart.isSelected() ? I18n.t("settings.savedAutoStart", saved) : saved);
             Anim.highlight(saveStatus);
             onSaved.run();
         } catch (Exception ex) {
             saveStatus.setStyle("-fx-text-fill: " + hex(Theme.palette().bad()) + ";");
-            saveStatus.setText("Kaydedilemedi: " + ex.getMessage());
+            saveStatus.setText(I18n.t("settings.saveFailed", ex.getMessage()));
         }
     }
 

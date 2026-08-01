@@ -1,7 +1,6 @@
 package com.emre.linewatch.config;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -14,6 +13,8 @@ public final class StartupManager {
     private static final Path STARTUP_DIR = Path.of(System.getenv("APPDATA"),
             "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
     private static final Path BAT = STARTUP_DIR.resolve("LineWatch.bat");
+    private static final String JVM_OPTS =
+            "-Xms32m -Xmx192m -XX:+UseSerialGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30";
 
     private StartupManager() {}
 
@@ -26,30 +27,42 @@ public final class StartupManager {
             Files.deleteIfExists(BAT);
             return;
         }
-        // jpackage imajindan calisiyorsak exe'yi, degilse jar'i baslat
-        String appPath = System.getProperty("jpackage.app-path");
-        String cmd = appPath != null
-                ? "start \"\" \"" + appPath + "\""
-                : "start \"\" javaw -Xms32m -Xmx192m -XX:+UseSerialGC "
-                  + "-XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -jar \"" + jarPath() + "\"";
-        Files.writeString(BAT, "@echo off\r\n" + cmd + "\r\n");
+        Files.createDirectories(STARTUP_DIR);
+        Files.writeString(BAT, script());
     }
 
-    /** Calisan jar'in yolu; gelistirme ortaminda (target/classes) dagitim jar'ina duser. */
-    private static String jarPath() {
+    private static String script() {
+        // jpackage imajindan calisiyorsak exe yolu surumden bagimsizdir
+        String appPath = System.getProperty("jpackage.app-path");
+        if (appPath != null) {
+            return "@echo off\r\nstart \"\" \"" + appPath + "\"\r\n";
+        }
+        // Gelistirme kurulumu: jar adi surum numarasi icerir. Yol sabit yazilirsa
+        // surum yukseltildiginde bat hala eski jar'i baslatir (ve o silinmisse hic
+        // acilmaz), bu yuzden jar her acilista klasorden bulunur.
+        String dir = jarDir();
+        return "@echo off\r\n"
+                + "rem LineWatch otomatik baslatma - jar surumden bagimsiz bulunur\r\n"
+                + "setlocal\r\n"
+                + "set \"JAR=\"\r\n"
+                + "for %%f in (\"" + dir + "\\*-jar-with-dependencies.jar\") do set \"JAR=%%~ff\"\r\n"
+                + "if not defined JAR exit /b 1\r\n"
+                + "start \"\" javaw " + JVM_OPTS + " -jar \"%JAR%\"\r\n";
+    }
+
+    /**
+     * Dagitim jar'inin bulundugu klasor. Jar'dan calisiyorsak jar'in klasoru,
+     * {@code mvn javafx:run} ile calisiyorsak {@code target/classes}'in ustu —
+     * ikisinde de {@code getParent()} dogru klasoru veriyor.
+     */
+    private static String jarDir() {
         try {
             Path loc = Path.of(StartupManager.class.getProtectionDomain()
                     .getCodeSource().getLocation().toURI());
-            if (loc.toString().endsWith(".jar")) return loc.toString();
-            // mvn javafx:run ile calisiyorsak: target/classes -> target/linewatch-*-jar-with-dependencies.jar
-            Path target = loc.getParent();
-            try (var stream = Files.list(target)) {
-                return stream.filter(p -> p.toString().endsWith("jar-with-dependencies.jar"))
-                        .findFirst().map(Path::toString)
-                        .orElse(target.resolve("linewatch-0.1.0-jar-with-dependencies.jar").toString());
-            }
-        } catch (URISyntaxException | IOException e) {
-            return "linewatch-0.1.0-jar-with-dependencies.jar";
+            Path dir = loc.getParent();
+            return dir == null ? "." : dir.toString();
+        } catch (Exception e) {
+            return ".";
         }
     }
 }

@@ -16,7 +16,6 @@ import java.util.function.Consumer;
  */
 public class HeatMap extends CanvasPane {
 
-    private static final String[] DAYS = {"Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"};
     private static final double GUTTER_L = 34;
     private static final double HEADER_T = 18;
     private static final double TOTALS_R = 54;
@@ -70,7 +69,7 @@ public class HeatMap extends CanvasPane {
     }
 
     private String describe(int d, int hIdx) {
-        return DAYS[d] + " " + String.format("%02d:00", hIdx) + " – "
+        return Fmt.dayShortName(d) + " " + String.format("%02d:00", hIdx) + " – "
                 + String.format("%02d:00", (hIdx + 1) % 24) + "   "
                 + Fmt.count(Math.round(matrix[d][hIdx])) + " " + unitLabel;
     }
@@ -109,7 +108,7 @@ public class HeatMap extends CanvasPane {
         // gun etiketleri
         g.setTextAlign(TextAlignment.LEFT);
         for (int d = 0; d < 7; d++) {
-            g.fillText(DAYS[d], 0, HEADER_T + d * ch + ch / 2);
+            g.fillText(Fmt.dayShortName(d), 0, HEADER_T + d * ch + ch / 2);
         }
 
         // hucreler

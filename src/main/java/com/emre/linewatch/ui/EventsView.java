@@ -1,6 +1,7 @@
 package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.SampleRepository;
@@ -33,7 +34,6 @@ import java.util.concurrent.Executors;
  */
 public class EventsView extends HBox {
 
-    private static final String ALL = "Tüm olaylar";
     private static final long PRE_WINDOW_MS = 10 * 60_000L;
     private static final long POST_WINDOW_MS = 2 * 60_000L;
 
@@ -62,17 +62,18 @@ public class EventsView extends HBox {
         getStyleClass().add("page");
         setSpacing(14);
 
-        search.setPromptText("Olaylarda ara…");
+        search.setPromptText(I18n.t("events.searchPrompt"));
         search.textProperty().addListener((obs, old, now) -> render());
         HBox searchBox = Ui.row(8, Icons.search(Icons.SM), search);
         HBox.setHgrow(search, Priority.ALWAYS);
 
-        filter.getItems().add(ALL);
-        for (LineEvent.Type t : LineEvent.Type.values()) filter.getItems().add(t.label);
+        String all = I18n.t("events.all");
+        filter.getItems().add(all);
+        for (LineEvent.Type t : LineEvent.Type.values()) filter.getItems().add(t.label());
         filter.getSelectionModel().selectFirst();
         filter.setOnAction(e -> render());
 
-        var refresh = Ui.iconButton(Icons.refresh(Icons.SM), "Yenile", "button", "subtle");
+        var refresh = Ui.iconButton(Icons.refresh(Icons.SM), I18n.t("events.refresh"), "button", "subtle");
         refresh.setOnAction(e -> refresh());
 
         VBox left = Ui.card(10,
@@ -127,7 +128,7 @@ public class EventsView extends HBox {
     // ---------- zaman cizelgesi ----------
 
     private void render() {
-        String query = search.getText() == null ? "" : search.getText().trim().toLowerCase(Fmt.TR);
+        String query = search.getText() == null ? "" : search.getText().trim().toLowerCase(Fmt.locale());
         String type = filter.getValue();
 
         timeline.getChildren().clear();
@@ -136,7 +137,7 @@ public class EventsView extends HBox {
         LocalDate lastDay = null;
         int shown = 0;
         for (LineEvent e : all) {
-            if (!ALL.equals(type) && !e.type().label.equals(type)) continue;
+            if (!I18n.t("events.all").equals(type) && !e.type().label().equals(type)) continue;
             if (!query.isEmpty() && !matches(e, query)) continue;
 
             LocalDate day = Instant.ofEpochMilli(e.ts()).atZone(ZoneId.systemDefault()).toLocalDate();
@@ -154,14 +155,14 @@ public class EventsView extends HBox {
 
         if (shown == 0) {
             timeline.getChildren().add(all.isEmpty()
-                    ? Ui.emptyState("Henüz olay yok", "Hat sorunsuz görünüyor.")
-                    : Ui.emptyState("Eşleşen olay yok", "Aramayı ya da filtreyi değiştir."));
+                    ? Ui.emptyState(I18n.t("events.emptyTitle"), I18n.t("events.emptyDetail"))
+                    : Ui.emptyState(I18n.t("events.noMatchTitle"), I18n.t("events.noMatchDetail")));
         }
     }
 
     private static boolean matches(LineEvent e, String query) {
-        if (e.type().label.toLowerCase(Fmt.TR).contains(query)) return true;
-        return e.detail() != null && e.detail().toLowerCase(Fmt.TR).contains(query);
+        if (e.type().label().toLowerCase(Fmt.locale()).contains(query)) return true;
+        return e.detail() != null && e.detail().toLowerCase(Fmt.locale()).contains(query);
     }
 
     private VBox buildRow(LineEvent e) {
@@ -171,7 +172,7 @@ public class EventsView extends HBox {
         time.getStyleClass().add("timeline-time");
         time.setMinWidth(42);
 
-        Label title = new Label(e.type().label);
+        Label title = new Label(e.type().label());
         title.getStyleClass().add("timeline-title");
 
         HBox head = Ui.row(9, time, icon, title);
@@ -209,8 +210,8 @@ public class EventsView extends HBox {
     // ---------- detay paneli ----------
 
     private void showEmptyDetail() {
-        detail.getChildren().setAll(Ui.emptyState("Bir olay seç",
-                "Soldaki listeden bir olaya tıkla; kopma öncesi hattın seyri burada çizilir."));
+        detail.getChildren().setAll(
+                Ui.emptyState(I18n.t("events.pickTitle"), I18n.t("events.pickDetail")));
         detail.setAlignment(Pos.CENTER);
     }
 
@@ -218,24 +219,25 @@ public class EventsView extends HBox {
         detail.setAlignment(Pos.TOP_LEFT);
 
         Node icon = Icons.forEvent(e.type(), 18);
-        Label title = Ui.h2(e.type().label);
+        Label title = Ui.h2(e.type().label());
         HBox head = Ui.row(10, icon, title);
 
         VBox meta = new VBox(4,
-                metaRow("Zaman", Fmt.dateTime(e.ts())),
-                metaRow("Süre", Fmt.duration(e.durationSec()).isEmpty()
-                        ? "kayıtlı değil" : Fmt.duration(e.durationSec())),
-                metaRow("Detay", e.detail() == null || e.detail().isBlank() ? "—" : e.detail()));
+                metaRow(I18n.t("events.time"), Fmt.dateTime(e.ts())),
+                metaRow(I18n.t("events.duration"), Fmt.duration(e.durationSec()).isEmpty()
+                        ? I18n.t("common.notRecorded") : Fmt.duration(e.durationSec())),
+                metaRow(I18n.t("events.detail"),
+                        e.detail() == null || e.detail().isBlank() ? I18n.t("common.dash") : e.detail()));
 
-        Label chartTitle = Ui.cardTitle("OLAY ÖNCESİ 10 DAKİKA");
+        Label chartTitle = Ui.cardTitle(I18n.t("events.preWindow"));
         TimeChart snrChart = new TimeChart().unit("dB").timeAxis(true);
         snrChart.setPrefHeight(140);
-        TimeChart crcChart = new TimeChart().unit("hata").zeroBased(true).timeAxis(true);
+        TimeChart crcChart = new TimeChart().unit(I18n.t("chart.unitErrors")).zeroBased(true).timeAxis(true);
         crcChart.setPrefHeight(120);
 
         detail.getChildren().setAll(head, meta, chartTitle,
-                Ui.row(8, Ui.faint("SNR marjı")), snrChart,
-                Ui.row(8, Ui.faint("CRC artışı")), crcChart);
+                Ui.row(8, Ui.faint(I18n.t("events.snrLabel"))), snrChart,
+                Ui.row(8, Ui.faint(I18n.t("events.crcLabel"))), crcChart);
 
         long from = e.ts() - PRE_WINDOW_MS;
         long to = e.ts() + POST_WINDOW_MS;
@@ -255,14 +257,14 @@ public class EventsView extends HBox {
                     prevCrc = s.crcDown();
                 }
                 List<TimeChart.Marker> mark = List.of(
-                        new TimeChart.Marker(e.ts(), e.type().label, Role.BAD));
+                        new TimeChart.Marker(e.ts(), e.type().label(), Role.BAD));
                 Platform.runLater(() -> {
                     snrChart.setRange(from, to);
                     crcChart.setRange(from, to);
                     snrChart.setSeries(List.of(
-                            new TimeChart.Series("SNR", Role.DOWN, ts, snrDown, true)));
+                            new TimeChart.Series(I18n.t("chart.seriesSnr"), Role.DOWN, ts, snrDown, true)));
                     crcChart.setSeries(List.of(
-                            new TimeChart.Series("CRC artışı", Role.WARN, ts, crcDelta, true)));
+                            new TimeChart.Series(I18n.t("chart.seriesCrc"), Role.WARN, ts, crcDelta, true)));
                     snrChart.setMarkers(mark);
                     crcChart.setMarkers(mark);
                 });

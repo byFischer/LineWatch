@@ -2,6 +2,7 @@ package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -38,12 +39,13 @@ public class ChartsView extends VBox {
     private final EventRepository events;
     private final Settings settings;
 
-    private final Segmented range = new Segmented("1 saat", "24 saat", "7 gün", "30 gün");
-    private final Label hint = Ui.faint("Grafiğin üzerine gel: değerler birlikte okunur");
+    private final Segmented range = new Segmented(I18n.t("chart.range1h"), I18n.t("chart.range24h"),
+            I18n.t("chart.range7d"), I18n.t("chart.range30d"));
+    private final Label hint = Ui.faint(I18n.t("chart.hint"));
 
     private final TimeChart snrChart = new TimeChart().unit("dB");
     private final TimeChart syncChart = new TimeChart().unit("Mbps");
-    private final TimeChart crcChart = new TimeChart().unit("hata").zeroBased(true).timeAxis(true);
+    private final TimeChart crcChart = new TimeChart().unit(I18n.t("chart.unitErrors")).zeroBased(true).timeAxis(true);
 
     // Modem izlenmiyorken ayni yerlesim internet olcumleriyle doldurulur
     private final TimeChart latencyChart = new TimeChart().unit("ms").zeroBased(true);
@@ -75,7 +77,7 @@ public class ChartsView extends VBox {
         setSpacing(14);
 
         range.setOnSelect(i -> reload());
-        HBox toolbar = Ui.row(14, Ui.cardTitle("ARALIK"), range, Ui.hSpacer(), hint);
+        HBox toolbar = Ui.row(14, Ui.cardTitle(I18n.t("chart.range")), range, Ui.hSpacer(), hint);
 
         snrChart.setPrefHeight(150);
         syncChart.setPrefHeight(130);
@@ -88,8 +90,7 @@ public class ChartsView extends VBox {
         VBox.setVgrow(stack, Priority.ALWAYS);
         getChildren().addAll(toolbar, stack);
 
-        lane.setOnHover(text -> hint.setText(text == null
-                ? "Grafiğin üzerine gel: değerler birlikte okunur" : text));
+        lane.setOnHover(text -> hint.setText(text == null ? I18n.t("chart.hint") : text));
 
         rebuildStack();
     }
@@ -107,12 +108,12 @@ public class ChartsView extends VBox {
     private void rebuildStack() {
         charts = modemMonitored ? dslCharts : netCharts;
         stack.getChildren().setAll(modemMonitored
-                ? List.of(header("SNR MARJI", "dB", true), snrChart,
-                        header("SENKRON HIZI", "Mbps", true), syncChart,
-                        header("CRC HATA ARTIŞI", "aralık başına artış", false), crcChart, lane)
-                : List.of(header("GECİKME", "ms", false), latencyChart,
-                        header("JİTTER", "ms · ardışık yoklamalar arası sapma", false), jitterChart,
-                        header("PAKET KAYBI", "%", false), lossChart, lane));
+                ? List.of(header(I18n.t("dash.snr"), "dB", true), snrChart,
+                        header(I18n.t("dash.sync"), "Mbps", true), syncChart,
+                        header(I18n.t("chart.crcDelta"), I18n.t("chart.perInterval"), false), crcChart, lane)
+                : List.of(header(I18n.t("dash.latency"), "ms", false), latencyChart,
+                        header(I18n.t("dash.jitter"), I18n.t("chart.jitterUnit"), false), jitterChart,
+                        header(I18n.t("dash.loss"), "%", false), lossChart, lane));
         for (TimeChart c : charts) VBox.setVgrow(c, Priority.ALWAYS);
         wireCrosshair();
         reload();
@@ -122,7 +123,7 @@ public class ChartsView extends VBox {
         HBox box = Ui.row(10, Ui.cardTitle(title), Ui.faint(unit));
         if (withLegend) {
             box.getChildren().addAll(Ui.hSpacer(),
-                    legendItem("Aşağı yön", true), legendItem("Yukarı yön", false));
+                    legendItem(I18n.t("common.down"), true), legendItem(I18n.t("common.up"), false));
             box.setSpacing(10);
         }
         VBox.setMargin(box, new javafx.geometry.Insets(6, 0, 0, 0));
@@ -219,15 +220,15 @@ public class ChartsView extends VBox {
 
         Platform.runLater(() -> {
             applyRange(from, now);
-            snrChart.threshold(snrThreshold, "uyarı eşiği " + Fmt.dec1(snrThreshold) + " dB");
+            snrChart.threshold(snrThreshold, I18n.t("chart.thresholdDb", Fmt.dec1(snrThreshold)));
             snrChart.setSeries(List.of(
-                    new TimeChart.Series("Aşağı", Role.DOWN, ts, snrDown, true),
-                    new TimeChart.Series("Yukarı", Role.UP, ts, snrUp, false)));
+                    new TimeChart.Series(I18n.t("common.downShort"), Role.DOWN, ts, snrDown, true),
+                    new TimeChart.Series(I18n.t("common.upShort"), Role.UP, ts, snrUp, false)));
             syncChart.setSeries(List.of(
-                    new TimeChart.Series("Aşağı", Role.DOWN, ts, syncDown, true),
-                    new TimeChart.Series("Yukarı", Role.UP, ts, syncUp, false)));
+                    new TimeChart.Series(I18n.t("common.downShort"), Role.DOWN, ts, syncDown, true),
+                    new TimeChart.Series(I18n.t("common.upShort"), Role.UP, ts, syncUp, false)));
             crcChart.setSeries(List.of(
-                    new TimeChart.Series("CRC artışı", Role.WARN, ts, crcDelta, true)));
+                    new TimeChart.Series(I18n.t("chart.seriesCrc"), Role.WARN, ts, crcDelta, true)));
             applyMarkers(markers);
         });
     }
@@ -255,13 +256,13 @@ public class ChartsView extends VBox {
         Platform.runLater(() -> {
             applyRange(from, now);
             latencyChart.threshold(latencyThreshold,
-                    "uyarı eşiği " + Fmt.dec0(latencyThreshold) + " ms");
+                    I18n.t("chart.thresholdMs", Fmt.dec0(latencyThreshold)));
             latencyChart.setSeries(List.of(
-                    new TimeChart.Series("Gecikme", Role.ACCENT, ts, latency, true)));
+                    new TimeChart.Series(I18n.t("chart.seriesLatency"), Role.ACCENT, ts, latency, true)));
             jitterChart.setSeries(List.of(
-                    new TimeChart.Series("Jitter", Role.MUTED, ts, jitter, true)));
+                    new TimeChart.Series(I18n.t("chart.seriesJitter"), Role.MUTED, ts, jitter, true)));
             lossChart.setSeries(List.of(
-                    new TimeChart.Series("Paket kaybı", Role.WARN, ts, loss, true)));
+                    new TimeChart.Series(I18n.t("chart.seriesLoss"), Role.WARN, ts, loss, true)));
             applyMarkers(markers);
         });
     }
@@ -275,7 +276,7 @@ public class ChartsView extends VBox {
                 case "good" -> Role.GOOD;
                 default -> Role.ACCENT;
             };
-            markers.add(new TimeChart.Marker(e.ts(), e.type().label, role));
+            markers.add(new TimeChart.Marker(e.ts(), e.type().label(), role));
         }
         return markers;
     }
