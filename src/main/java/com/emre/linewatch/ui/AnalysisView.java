@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * 7x24 isi haritasi: hafta icinde hangi gun ve saatte CRC patliyor ya da hat kopuyor?
@@ -41,11 +40,7 @@ public class AnalysisView extends VBox {
     private final VBox worst = new VBox(6);
     private final List<Region> rampCells = new ArrayList<>();
 
-    private final ExecutorService loader = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "analysis-loader");
-        t.setDaemon(true);
-        return t;
-    });
+    private final ExecutorService loader = Ui.loader("analysis-loader");
 
     public AnalysisView(SampleRepository samples, EventRepository events) {
         this.samples = samples;
@@ -68,8 +63,13 @@ public class AnalysisView extends VBox {
 
         getChildren().addAll(toolbar, heatCard, worstCard);
 
-        Theme.paletteProperty().addListener((obs, old, now) -> paintRamp());
+        Theme.onPaletteChange(this, now -> paintRamp());
         reload();
+    }
+
+    /** Sayfa atilirken arka plan yukleyicisi kapatilir. */
+    public void dispose() {
+        loader.shutdownNow();
     }
 
     private HBox buildLegend() {

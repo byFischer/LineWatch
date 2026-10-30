@@ -103,6 +103,18 @@ public final class Theme {
     public static ReadOnlyObjectProperty<Palette> paletteProperty() { return PALETTE; }
 
     /**
+     * Tema degisince {@code action} calisir; dinleyici {@code owner} dugumu yasadigi
+     * surece gecerlidir. PALETTE statik oldugu icin dogrudan addListener ile eklenen
+     * lambda dugumu (ve tum sayfayi) sonsuza dek bellekte tutardi; burada Theme'e
+     * zayif baglanir, guclu referansi dugumun kendisi tasir.
+     */
+    public static void onPaletteChange(javafx.scene.Node owner, java.util.function.Consumer<Palette> action) {
+        javafx.beans.value.ChangeListener<Palette> listener = (obs, old, now) -> action.accept(now);
+        owner.getProperties().put(listener, Boolean.TRUE);
+        PALETTE.addListener(new javafx.beans.value.WeakChangeListener<>(listener));
+    }
+
+    /**
      * Yerel tema takibi yoksa (JavaFX 21) sistem temasini yeniden okur.
      * Pencere odaklandiginda cagrilir; kullanici Windows temasini degistirip
      * uygulamaya dondugunde arayuz uyum saglar.

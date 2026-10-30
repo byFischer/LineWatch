@@ -22,7 +22,6 @@ import javafx.scene.shape.Circle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,11 +58,7 @@ public class ChartsView extends VBox {
     private VBox stack;
     private boolean modemMonitored = true;
 
-    private final ExecutorService loader = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "chart-loader");
-        t.setDaemon(true);
-        return t;
-    });
+    private final ExecutorService loader = Ui.loader("chart-loader");
     private final AtomicBoolean reloadQueued = new AtomicBoolean();
 
     public ChartsView(SampleRepository samples, NetSampleRepository netSamples,
@@ -99,6 +94,11 @@ public class ChartsView extends VBox {
      * Modem izlemesinin acik olup olmadigini bildirir; grafik yigini buna gore
      * DSL ya da internet olcumlerine gecer. JavaFX is parcaciginda cagrilmalidir.
      */
+    /** Sayfa atilirken arka plan yukleyicisi kapatilir. */
+    public void dispose() {
+        loader.shutdownNow();
+    }
+
     public void setModemMonitored(boolean on) {
         if (modemMonitored == on) return;
         modemMonitored = on;
@@ -133,8 +133,7 @@ public class ChartsView extends VBox {
     private HBox legendItem(String text, boolean downSeries) {
         Circle marker = new Circle(4);
         marker.setFill(downSeries ? Theme.palette().down() : Theme.palette().up());
-        Theme.paletteProperty().addListener((obs, old, now) ->
-                marker.setFill(downSeries ? now.down() : now.up()));
+        Theme.onPaletteChange(marker, now -> marker.setFill(downSeries ? now.down() : now.up()));
         return Ui.row(6, marker, Ui.faint(text));
     }
 

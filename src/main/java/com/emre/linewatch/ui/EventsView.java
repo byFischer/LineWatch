@@ -26,7 +26,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Olay gecmisi: solda gun gun grupli zaman cizelgesi, sagda secilen olayin detayi.
@@ -49,11 +48,7 @@ public class EventsView extends HBox {
     private final Map<Long, VBox> rows = new LinkedHashMap<>();
     private LineEvent selected;
 
-    private final ExecutorService loader = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "events-loader");
-        t.setDaemon(true);
-        return t;
-    });
+    private final ExecutorService loader = Ui.loader("events-loader");
 
     public EventsView(EventRepository events, SampleRepository samples) {
         this.events = events;
@@ -99,6 +94,11 @@ public class EventsView extends HBox {
     }
 
     // ---------- veri ----------
+
+    /** Sayfa atilirken arka plan yukleyicisi kapatilir. */
+    public void dispose() {
+        loader.shutdownNow();
+    }
 
     public void refresh() {
         loader.execute(() -> {

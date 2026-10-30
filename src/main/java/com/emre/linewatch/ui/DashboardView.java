@@ -30,7 +30,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Pano: saglik karti + 24 saat seridi + canli SNR grafigi + metrik kartlari.
@@ -88,16 +87,13 @@ public class DashboardView extends ScrollPane {
     private final NetSampleRepository netSamples;
     private final EventRepository events;
     private final Settings settings;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "dashboard-stats");
-        t.setDaemon(true);
-        return t;
-    });
+    private final ExecutorService worker = Ui.loader("dashboard-stats");
 
     private LineSample previous;
     private volatile NetSample lastNetSample;
     private volatile long lastSampleTs;
     private Timeline pulse;
+    private Timeline ticker;
     /** Serit uzerinde fare yokken alt satirda gosterilen ozet. */
     private String summaryText = I18n.t("dash.last24h");
 
@@ -129,7 +125,7 @@ public class DashboardView extends ScrollPane {
         setContent(page);
 
         // "son guncelleme 4 sn once" metnini saniye basinda tazele
-        Timeline ticker = new Timeline(new javafx.animation.KeyFrame(Duration.seconds(1),
+        ticker = new Timeline(new javafx.animation.KeyFrame(Duration.seconds(1),
                 e -> { if (lastSampleTs > 0) updated.setText(I18n.t("dash.updated", Fmt.ago(lastSampleTs))); }));
         ticker.setCycleCount(Timeline.INDEFINITE);
         ticker.play();
@@ -222,6 +218,13 @@ public class DashboardView extends ScrollPane {
      * Modem izlemesinin acik olup olmadigini bildirir; Pano yerlesimi buna gore
      * degisir. JavaFX is parcaciginda cagrilmalidir.
      */
+    /** Sayfa atilirken: sayac, nabiz animasyonu ve arka plan thread'i durdurulur. */
+    public void dispose() {
+        ticker.stop();
+        if (pulse != null) pulse.stop();
+        worker.shutdownNow();
+    }
+
     public void setModemMonitored(boolean on) {
         if (modemMonitored == on) return;
         modemMonitored = on;
@@ -242,8 +245,7 @@ public class DashboardView extends ScrollPane {
     private HBox legendItem(String text, Role role) {
         Circle marker = new Circle(4);
         marker.setFill(role == Role.DOWN ? Theme.palette().down() : Theme.palette().up());
-        Theme.paletteProperty().addListener((obs, old, now) ->
-                marker.setFill(role == Role.DOWN ? now.down() : now.up()));
+        Theme.onPaletteChange(marker, now -> marker.setFill(role == Role.DOWN ? now.down() : now.up()));
         return Ui.row(6, marker, Ui.faint(text));
     }
 

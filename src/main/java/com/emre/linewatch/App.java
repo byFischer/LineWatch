@@ -30,6 +30,7 @@ import com.emre.linewatch.ui.Theme;
 import com.emre.linewatch.ui.Ui;
 import com.emre.linewatch.ui.WindowChrome;
 import javafx.application.Application;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -47,6 +48,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.util.Duration;
 
 import java.awt.BasicStroke;
 import java.awt.Graphics2D;
@@ -73,8 +75,19 @@ public class App extends Application {
     private TrayIcon trayIcon;
     private Stage stage;
     private WindowChrome chrome;
-    private DashboardView dashboard;
-    private ChartsView charts;
+    // Sayfalar pencere uzun sure tepsideyken atilir (bkz. releaseViews); izleme
+    // thread'leri bu alanlari okudugu icin volatile, null olabilirler.
+    private volatile DashboardView dashboard;
+    private volatile ChartsView charts;
+    private volatile EventsView eventsView;
+    private SampleRepository samples;
+    private NetSampleRepository netSamples;
+    private EventRepository events;
+    private Scene scene;
+    private int currentPage;
+    /** Pencere bu kadar sure gizli kalirsa sayfalar bellekten atilir. */
+    private static final double UI_RELEASE_SECONDS = 60;
+    private final PauseTransition releaseTimer = new PauseTransition(Duration.seconds(UI_RELEASE_SECONDS));
     private ReportBuilder reportBuilder;
     private CsvExporter csvExporter;
 
@@ -101,9 +114,9 @@ public class App extends Application {
         applyThemePreference();
 
         db = new Database();
-        SampleRepository samples = new SampleRepository(db);
-        NetSampleRepository netSamples = new NetSampleRepository(db);
-        EventRepository events = new EventRepository(db);
+        samples = new SampleRepository(db);
+        netSamples = new NetSampleRepository(db);
+        events = new EventRepository(db);
         reportBuilder = new ReportBuilder(samples, netSamples, events);
         csvExporter = new CsvExporter(db);
 
@@ -118,34 +131,36 @@ public class App extends Application {
         monitor = new MonitorService(settings, samples, netSamples, alerts, telegram);
         new TelegramBot(settings, telegram, monitor, events).start();
 
-        dashboard = new DashboardView(samples, netSamples, events, settings);
-        charts = new ChartsView(samples, netSamples, events, settings);
-        AnalysisView analysis = new AnalysisView(samples, events);
-        EventsView eventsView = new EventsView(events, samples);
-        SettingsView settingsView = new SettingsView(settings, this::applySettings);
-        views.addAll(List.of(dashboard, charts, analysis, eventsView, settingsView));
-
-        alerts.setEventListener(eventsView::addLive);
+        // Dinleyiciler sayfalara alan uzerinden ulasir: sayfalar atilmis olabilir (null).
+        alerts.setEventListener(e -> {
+            EventsView v = eventsView;
+            if (v != null) v.addLive(e);
+        });
         monitor.addSampleListener(s -> {
-            dashboard.update(s);
-            charts.onSample(s);
+            DashboardView d = dashboard;
+            if (d != null) d.update(s);
+            ChartsView c = charts;
+            if (c != null) c.onSample(s);
             updateStatus(s);
         });
         monitor.addNetListener(n -> {
-            dashboard.updateNet(n);
-            charts.onNet(n);
+            DashboardView d = dashboard;
+            if (d != null) d.updateNet(n);
+            ChartsView c = charts;
+            if (c != null) c.onNet(n);
             // Modem izlenmiyorken durum cubugu ve tray internetin kendisini gosterir.
             if (!monitor.hasCollector()) updateNetStatus(n);
         });
         monitor.addStatusListener(error -> {
             if (error == null) return;
-            dashboard.showError(error);
+            DashboardView d = dashboard;
+            if (d != null) d.showError(error);
             Platform.runLater(() -> setStatus("unknown", I18n.t("status.noConnection")));
             setTray("unknown", I18n.t("tray.modemUnreachable"));
         });
 
         BorderPane appRoot = buildShell(events);
-        Scene scene = new Scene(appRoot, 1180, 780);
+        scene = new Scene(appRoot, 1180, 780);
         Theme.install(scene);
 
         stage.initStyle(StageStyle.UNDECORATED);
@@ -160,6 +175,14 @@ public class App extends Application {
         stage.setOnCloseRequest(e -> {
             e.consume();
             stage.hide();
+        });
+        // Tepside uzun sure kalan pencerenin sayfalari atilir; acilinca yeniden kurulur.
+        releaseTimer.setOnFinished(e -> {
+            if (!stage.isShowing()) releaseViews();
+        });
+        stage.showingProperty().addListener((obs, was, showing) -> {
+            if (showing) releaseTimer.stop();
+            else releaseTimer.playFromStart();
         });
         // yerel tema takibi yoksa pencereye donuldugunde sistem temasi yeniden okunur
         stage.focusedProperty().addListener((obs, was, focused) -> {
@@ -181,11 +204,54 @@ public class App extends Application {
         if (modemConfigured()) {
             monitor.setCollector(new TpLinkCollector(settings.modemHost(), settings.modemPassword()));
         }
-        dashboard.setModemMonitored(modemConfigured());
-        charts.setModemMonitored(modemConfigured());
+        buildViews();
         select(0);
         stage.show();
         monitor.start();
+    }
+
+    // ---------- sayfalar: kur / birak ----------
+
+    private void buildViews() {
+        DashboardView d = new DashboardView(samples, netSamples, events, settings);
+        ChartsView c = new ChartsView(samples, netSamples, events, settings);
+        AnalysisView analysis = new AnalysisView(samples, events);
+        EventsView e = new EventsView(events, samples);
+        SettingsView settingsView = new SettingsView(settings, this::applySettings);
+        d.setModemMonitored(modemConfigured());
+        c.setModemMonitored(modemConfigured());
+        views.clear();
+        views.addAll(List.of(d, c, analysis, e, settingsView));
+        dashboard = d;
+        charts = c;
+        eventsView = e;
+        // Yeniden kurulan sayfa son olcumu hemen gostersin (bir sonraki turu beklemesin)
+        LineSample last = monitor.lastSample();
+        if (last != null && monitor.hasCollector()) d.update(last);
+        NetSample lastNet = monitor.lastNet();
+        if (lastNet != null) d.updateNet(lastNet);
+    }
+
+    /**
+     * Tepsideyken bellegi bosaltir: sayfalar (grafikler, canvas dokulari, binlerce
+     * dugum) ve sahne birakilir. Izleme, uyarilar ve tray etkilenmez; pencere
+     * acildiginda showWindow() sayfalari yeniden kurar.
+     */
+    private void releaseViews() {
+        if (views.isEmpty()) return;
+        dashboard = null;
+        charts = null;
+        eventsView = null;
+        content.getChildren().clear();
+        for (Node v : views) {
+            if (v instanceof DashboardView d) d.dispose();
+            else if (v instanceof ChartsView c) c.dispose();
+            else if (v instanceof AnalysisView a) a.dispose();
+            else if (v instanceof EventsView ev) ev.dispose();
+        }
+        views.clear();
+        stage.setScene(null);
+        System.gc();
     }
 
     /** Sol menude marka altinda duran satir: izlenen modem ya da "internet izleme". */
@@ -301,6 +367,7 @@ public class App extends Application {
             navItems.get(i).getStyleClass().remove("active");
             if (i == index) navItems.get(i).getStyleClass().add("active");
         }
+        currentPage = index;
         pageTitle.setText(I18n.t(PAGE_KEYS[index]));
         Anim.swap(content, views.get(index));
     }
@@ -379,8 +446,10 @@ public class App extends Application {
     private void applySettings() {
         applyThemePreference();
         boolean modem = modemConfigured();
-        dashboard.setModemMonitored(modem);
-        charts.setModemMonitored(modem);
+        DashboardView d = dashboard;
+        if (d != null) d.setModemMonitored(modem);
+        ChartsView c = charts;
+        if (c != null) c.setModemMonitored(modem);
         monitor.restart(modem
                 ? new TpLinkCollector(settings.modemHost(), settings.modemPassword())
                 : null);
@@ -412,6 +481,11 @@ public class App extends Application {
     }
 
     private void showWindow() {
+        if (stage.getScene() == null) stage.setScene(scene);
+        if (views.isEmpty()) {
+            buildViews();
+            select(currentPage);
+        }
         stage.show();
         stage.toFront();
         stage.requestFocus();

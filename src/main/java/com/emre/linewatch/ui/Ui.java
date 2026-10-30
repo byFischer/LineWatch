@@ -139,4 +139,20 @@ public final class Ui {
         box.setPadding(new javafx.geometry.Insets(28, 12, 28, 12));
         return box;
     }
+
+    /**
+     * Sayfalarin arka plan yukleyicisi: tek thread, siradaki isler sirayla.
+     * Bos kalan thread 30 sn sonra kapanir (tepsideyken bosuna yasamasin);
+     * sayfa atildiktan sonra gelen isler sessizce dusurulur.
+     */
+    public static java.util.concurrent.ExecutorService loader(String name) {
+        var executor = new java.util.concurrent.ThreadPoolExecutor(1, 1, 30, java.util.concurrent.TimeUnit.SECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(), r -> {
+                    Thread t = new Thread(r, name);
+                    t.setDaemon(true);
+                    return t;
+                }, new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
 }
