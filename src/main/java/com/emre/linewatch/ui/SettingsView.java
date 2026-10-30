@@ -45,6 +45,7 @@ public class SettingsView extends ScrollPane {
     private final CheckBox autoStart = new CheckBox(I18n.t("settings.autoStart"));
     private final ComboBox<Theme.Mode> themeBox = new ComboBox<>();
     private final ComboBox<Lang> languageBox = new ComboBox<>();
+    private final ComboBox<Integer> retentionBox = new ComboBox<>();
 
     private final Label testResult = Ui.faint("");
     private final Label saveStatus = Ui.faint("");
@@ -169,7 +170,35 @@ public class SettingsView extends ScrollPane {
                 Ui.faint(I18n.t("settings.themeHint")),
                 field(I18n.t("settings.language"), languageBox),
                 Ui.faint(I18n.t("settings.languageHint")),
+                field(I18n.t("settings.retention"), retentionBox),
+                Ui.faint(I18n.t("settings.retentionHint")),
                 autoStart);
+    }
+
+    /** Ham olcum saklama secenekleri (gun); ayar dosyasinda baska bir deger varsa o da listelenir. */
+    private static final int[] RETENTION_CHOICES = {7, 14, 30, 60, 90};
+
+    private void setupRetentionBox() {
+        int current = settings.retentionDays();
+        retentionBox.getItems().clear();
+        for (int d : RETENTION_CHOICES) retentionBox.getItems().add(d);
+        if (!retentionBox.getItems().contains(current)) {
+            retentionBox.getItems().add(current);
+            retentionBox.getItems().sort(Integer::compare);
+        }
+        retentionBox.setValue(current);
+        retentionBox.setButtonCell(retentionCell());
+        retentionBox.setCellFactory(list -> retentionCell());
+    }
+
+    private static javafx.scene.control.ListCell<Integer> retentionCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : I18n.t("settings.retentionDays", item));
+            }
+        };
     }
 
     /**
@@ -276,6 +305,7 @@ public class SettingsView extends ScrollPane {
         tgToken.setText(settings.telegramToken());
         tgChatId.setText(settings.telegramChatId());
         autoStart.setSelected(StartupManager.isEnabled());
+        setupRetentionBox();
     }
 
     private void testConnection(Button trigger) {
@@ -333,6 +363,7 @@ public class SettingsView extends ScrollPane {
             settings.telegramChatId(tgChatId.getText().trim());
             settings.theme(themeBox.getValue() == null ? "AUTO" : themeBox.getValue().name());
             settings.language(languageBox.getValue() == null ? I18n.AUTO : languageBox.getValue().tag);
+            if (retentionBox.getValue() != null) settings.retentionDays(retentionBox.getValue());
             settings.save();
             StartupManager.setEnabled(autoStart.isSelected());
 

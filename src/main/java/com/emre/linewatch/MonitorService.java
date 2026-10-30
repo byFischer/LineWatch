@@ -148,14 +148,12 @@ public class MonitorService {
     }
 
     private void cleanup() {
-        long cutoff = System.currentTimeMillis() - settings.retentionDays() * 24L * 3600 * 1000;
+        // Once saatlik ozet, sonra ham olcum silme (bkz. RetentionJob); hata olursa hicbir sey silinmez.
         try {
-            samples.deleteOlderThan(cutoff);
-        } catch (Exception ignored) {
-        }
-        try {
-            netSamples.deleteOlderThan(cutoff);
-        } catch (Exception ignored) {
+            new com.emre.linewatch.storage.RetentionJob(samples.database()).run(System.currentTimeMillis(),
+                    settings.retentionDays(), settings.hourlyRetentionDays());
+        } catch (Exception e) {
+            System.err.println("Saklama/ozet isi basarisiz: " + e.getMessage());
         }
     }
 

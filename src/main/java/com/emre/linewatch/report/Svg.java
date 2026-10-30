@@ -42,7 +42,7 @@ final class Svg {
     }
 
     static String lineChart(long from, long to, List<Series> series, List<RefLine> refs,
-                            String unit, ZoneId zone) {
+                            String unit, ZoneId zone, long hourlyUntil) {
         double max = 0;
         for (Series s : series) for (double v : s.values()) if (!Double.isNaN(v)) max = Math.max(max, v);
         for (RefLine r : refs) max = Math.max(max, r.value());
@@ -51,6 +51,8 @@ final class Svg {
         // Ardisik iki nokta arasinda bundan uzun bosluk varsa olcum yapilmamistir:
         // cizgiyi birlestirmek yaniltici olur.
         long maxGap = Math.max(3 * (to - from) / ReportBuilder.CHART_POINTS, 10 * 60_000L);
+        // Saatlik ozet noktalari en az bir saat arayla gelir; arka arkaya iki saat birlesir.
+        long hourlyGap = Math.max(maxGap, 90 * 60_000L);
 
         StringBuilder sb = open();
         grid(sb, from, to, top, unit, zone);
@@ -73,7 +75,7 @@ final class Svg {
                     penDown = false;
                     continue;
                 }
-                if (penDown && s.ts()[i] - lastTs > maxGap) penDown = false;
+                if (penDown && s.ts()[i] - lastTs > (lastTs < hourlyUntil ? hourlyGap : maxGap)) penDown = false;
                 d.append(penDown ? 'L' : 'M')
                         .append(String.format(Locale.ROOT, "%.1f %.1f ", x(s.ts()[i], from, to), y(v, top)));
                 penDown = true;

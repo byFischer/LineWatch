@@ -92,24 +92,17 @@ public class NetSampleRepository {
 
     /** {@link #summarySince} ile ayni ozet, kapali bir aralik icin (rapor). */
     public synchronized Summary summaryRange(long from, long to) throws SQLException {
-        try (PreparedStatement ps = db.conn().prepareStatement("""
-                SELECT AVG(CASE WHEN latency_ms >= 0 THEN latency_ms END),
-                       AVG(CASE WHEN jitter_ms  >= 0 THEN jitter_ms  END),
-                       AVG(loss_pct),
-                       AVG(online) * 100.0,
-                       COUNT(*)
-                FROM net_samples WHERE ts BETWEEN ? AND ?""")) {
+        return aggregate(from, to).toSummary();
+    }
+
+    /** [from, to] araligindaki olcumlerin toplamlari (saatlik ozetlerle birlestirilebilir). */
+    public synchronized NetAggregate aggregate(long from, long to) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT " + NetAggregate.COLUMNS + " FROM net_samples WHERE ts BETWEEN ? AND ?")) {
             ps.setLong(1, from);
             ps.setLong(2, to);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Summary.empty();
-                int count = rs.getInt(5);
-                if (count == 0) return Summary.empty();
-                double latency = rs.getDouble(1);
-                if (rs.wasNull()) latency = -1;
-                double jitter = rs.getDouble(2);
-                if (rs.wasNull()) jitter = -1;
-                return new Summary(latency, jitter, rs.getDouble(3), rs.getDouble(4), count);
+                return rs.next() ? NetAggregate.read(rs, 1) : NetAggregate.EMPTY;
             }
         }
     }

@@ -261,7 +261,7 @@ public final class HtmlReport {
                             new Svg.Series("", Svg.BLUE, ts, snrDown, false),
                             new Svg.Series("", Svg.ORANGE, ts, snrUp, false)),
                             List.of(new Svg.RefLine(t("report.serThreshold"), r.options().snrThresholdDb(), Svg.RED)),
-                            "dB", zone));
+                            "dB", zone, r.hourlyUntil()));
             List<Svg.RefLine> syncRefs = r.options().planMbps() > 0
                     ? List.of(new Svg.RefLine(t("report.serPlan") + " " + num(r.options().planMbps(), 0) + " Mbps",
                     r.options().planMbps(), Svg.RED))
@@ -269,7 +269,7 @@ public final class HtmlReport {
             figure(t("report.chartSync"), legend(Svg.BLUE, "report.serDown", Svg.GRAY, "report.serMax"),
                     Svg.lineChart(from, to, List.of(
                             new Svg.Series("", Svg.BLUE, ts, sync, false),
-                            new Svg.Series("", Svg.GRAY, ts, max, true)), syncRefs, "Mbps", zone));
+                            new Svg.Series("", Svg.GRAY, ts, max, true)), syncRefs, "Mbps", zone, r.hourlyUntil()));
             figure(t("report.chartCrc"), "", Svg.timeBars(from, to, ts, crc, Svg.ORANGE, t("report.unitCount"), zone));
         }
         List<NetSample> ns = r.netSeries();
@@ -287,7 +287,7 @@ public final class HtmlReport {
             figure(t("report.chartLatency"), legend(Svg.BLUE, "report.serLatency", Svg.PURPLE, "report.serJitter"),
                     Svg.lineChart(from, to, List.of(
                             new Svg.Series("", Svg.BLUE, ts, lat, false),
-                            new Svg.Series("", Svg.PURPLE, ts, jit, false)), List.of(), "ms", zone));
+                            new Svg.Series("", Svg.PURPLE, ts, jit, false)), List.of(), "ms", zone, r.hourlyUntil()));
             figure(t("report.chartLoss"), "", Svg.timeBars(from, to, ts, loss, Svg.RED, "%", zone));
         }
         sb.append("</section>");
@@ -318,6 +318,7 @@ public final class HtmlReport {
         items.add(t("report.m3", r.hasLine() ? pct(r.lineCoveragePct()) : t("common.dash"),
                 r.hasNet() ? pct(r.netCoveragePct()) : t("common.dash")));
         items.add(t("report.m4"));
+        if (r.usesHourly()) items.add(t("report.m7", dateTime(r.hourlyUntil())));
         if (r.hasLine()) items.add(t("report.m5"));
         for (String item : items) sb.append("<li>").append(esc(item)).append("</li>");
         sb.append("</ul></section>");
