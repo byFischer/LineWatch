@@ -13,12 +13,29 @@ public class Settings {
     public static final Path DIR = Path.of(System.getenv("APPDATA"), "LineWatch");
     private static final Path FILE = DIR.resolve("config.properties");
 
+    /** DPAPI ile sifrelenerek saklanan anahtarlar (bkz. SecretStore). */
+    private static final String[] SECRET_KEYS = {"modem.password", "telegram.token"};
+
     private final Properties p = new Properties();
+    private final Path file;
+
+    public Settings() {
+        this(FILE);
+    }
+
+    /** Test icin: ayar dosyasi disaridan verilebilir. */
+    Settings(Path file) {
+        this.file = file;
+    }
 
     public static Settings load() {
-        Settings s = new Settings();
-        if (Files.exists(FILE)) {
-            try (InputStream in = Files.newInputStream(FILE)) {
+        return load(FILE);
+    }
+
+    static Settings load(Path file) {
+        Settings s = new Settings(file);
+        if (Files.exists(file)) {
+            try (InputStream in = Files.newInputStream(file)) {
                 s.p.load(in);
             } catch (IOException ignored) {
             }
@@ -27,17 +44,37 @@ public class Settings {
     }
 
     public void save() throws IOException {
-        Files.createDirectories(DIR);
-        try (OutputStream out = Files.newOutputStream(FILE)) {
+        Files.createDirectories(file.getParent());
+        try (OutputStream out = Files.newOutputStream(file)) {
             p.store(out, "LineWatch ayarlari");
         }
+    }
+
+    /**
+     * Eski surumlerden kalan duz metin gizli degerleri DPAPI ile sifreler.
+     * Bir sey degistiyse true doner; cagiran taraf ardindan save() yapmalidir.
+     * DPAPI yoksa hicbir sey degismez (deger duz metin kalir, kaybolmaz).
+     */
+    public boolean migrateSecrets() {
+        if (!SecretStore.isAvailable()) return false;
+        boolean changed = false;
+        for (String k : SECRET_KEYS) {
+            String raw = p.getProperty(k, "");
+            if (raw.isEmpty() || SecretStore.isProtected(raw)) continue;
+            String enc = SecretStore.protect(raw);
+            if (SecretStore.isProtected(enc)) {
+                p.setProperty(k, enc);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public String modemHost() { return p.getProperty("modem.host", "http://192.168.1.1"); }
     public void modemHost(String v) { p.setProperty("modem.host", v); }
 
-    public String modemPassword() { return p.getProperty("modem.password", ""); }
-    public void modemPassword(String v) { p.setProperty("modem.password", v); }
+    public String modemPassword() { return SecretStore.reveal(p.getProperty("modem.password", "")); }
+    public void modemPassword(String v) { p.setProperty("modem.password", SecretStore.protect(v)); }
 
     public int pollSeconds() { return getInt("poll.seconds", 15); }
     public void pollSeconds(int v) { p.setProperty("poll.seconds", String.valueOf(v)); }
@@ -78,8 +115,8 @@ public class Settings {
     public boolean telegramEnabled() { return getBool("notify.telegram", false); }
     public void telegramEnabled(boolean v) { p.setProperty("notify.telegram", String.valueOf(v)); }
 
-    public String telegramToken() { return p.getProperty("telegram.token", ""); }
-    public void telegramToken(String v) { p.setProperty("telegram.token", v); }
+    public String telegramToken() { return SecretStore.reveal(p.getProperty("telegram.token", "")); }
+    public void telegramToken(String v) { p.setProperty("telegram.token", SecretStore.protect(v)); }
 
     public String telegramChatId() { return p.getProperty("telegram.chatId", ""); }
     public void telegramChatId(String v) { p.setProperty("telegram.chatId", v); }

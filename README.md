@@ -34,7 +34,7 @@ Windows bildirimi ve Telegram mesajı gönderilir. Sistem tepsisinde arka planda
 > İndirdiğin dosyanın bozulmadığını release'deki `SHA256SUMS.txt` ile doğrulayabilirsin.
 
 Java'sı olanlar için `LineWatch-x.y.z.jar` da release'e ekleniyor:
-`java -jar LineWatch-x.y.z.jar`
+`java -jar LineWatch-x.y.z.jar` (Java 25 veya daha yenisi gerekir)
 
 ## Uyumluluk
 
@@ -155,7 +155,7 @@ Uygulamayı kaldırmak için klasörü sil; bu iki dosyayı da silersen geçmiş
 
 ## Geliştirme
 
-Gereksinimler: **JDK 21+** (25 ile geliştiriliyor) ve **Maven 3.9+**.
+Gereksinimler: **JDK 25+** ve **Maven 3.9+**.
 
 ```bash
 mvn javafx:run                  # doğrudan çalıştır

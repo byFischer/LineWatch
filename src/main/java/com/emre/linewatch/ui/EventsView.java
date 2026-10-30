@@ -2,6 +2,7 @@ package com.emre.linewatch.ui;
 
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.config.I18n;
+import com.emre.linewatch.config.Log;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.SampleRepository;
@@ -26,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.logging.Level;
 
 /**
  * Olay gecmisi: solda gun gun grupli zaman cizelgesi, sagda secilen olayin detayi.
@@ -110,7 +112,7 @@ public class EventsView extends HBox {
                     render();
                 });
             } catch (Exception e) {
-                System.err.println("Olaylar yüklenemedi: " + e.getMessage());
+                Log.get(EventsView.class).log(Level.WARNING, "Olaylar yüklenemedi", e);
             }
         });
     }
@@ -269,7 +271,7 @@ public class EventsView extends HBox {
                     crcChart.setMarkers(mark);
                 });
             } catch (Exception ex) {
-                System.err.println("Olay detayı yüklenemedi: " + ex.getMessage());
+                Log.get(EventsView.class).log(Level.WARNING, "Olay detayı yüklenemedi", ex);
             }
         });
     }

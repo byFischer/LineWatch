@@ -3,6 +3,7 @@ package com.emre.linewatch.ui;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.config.I18n;
+import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -30,6 +31,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.logging.Level;
 
 /**
  * Pano: saglik karti + 24 saat seridi + canli SNR grafigi + metrik kartlari.
@@ -392,7 +394,7 @@ public class DashboardView extends ScrollPane {
                     }
                 });
             } catch (Exception e) {
-                System.err.println("Pano verisi yüklenemedi: " + e.getMessage());
+                Log.get(DashboardView.class).log(Level.WARNING, "Pano verisi yüklenemedi", e);
             }
         });
     }
@@ -628,7 +630,7 @@ public class DashboardView extends ScrollPane {
                     applyNetHealth(day);
                 });
             } catch (Exception e) {
-                System.err.println("Internet olcum verisi yuklenemedi: " + e.getMessage());
+                Log.get(DashboardView.class).log(Level.WARNING, "Internet olcum verisi yuklenemedi", e);
             }
         });
     }
