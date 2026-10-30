@@ -16,7 +16,6 @@ import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.Database;
 import com.emre.linewatch.storage.EventRepository;
-import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
 import com.emre.linewatch.ui.AnalysisView;
@@ -26,9 +25,11 @@ import com.emre.linewatch.ui.DashboardView;
 import com.emre.linewatch.ui.EventsView;
 import com.emre.linewatch.ui.Fmt;
 import com.emre.linewatch.ui.Icons;
+import com.emre.linewatch.ui.RebootDialog;
 import com.emre.linewatch.ui.ReportDialog;
 import com.emre.linewatch.ui.SettingsView;
 import com.emre.linewatch.ui.Theme;
+import com.emre.linewatch.ui.Tray;
 import com.emre.linewatch.ui.Ui;
 import com.emre.linewatch.ui.WindowChrome;
 import javafx.application.Application;
@@ -40,9 +41,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -54,18 +53,8 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
-import java.awt.BasicStroke;
-import java.awt.Graphics2D;
-import java.awt.MenuItem;
-import java.awt.PopupMenu;
-import java.awt.RenderingHints;
-import java.awt.SystemTray;
-import java.awt.TrayIcon;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 
 /**
@@ -77,7 +66,7 @@ public class App extends Application {
     private Settings settings;
     private Database db;
     private MonitorService monitor;
-    private TrayIcon trayIcon;
+    private final Tray tray = new Tray();
     private Stage stage;
     private WindowChrome chrome;
     // Sayfalar pencere uzun sure tepsideyken atilir (bkz. releaseViews); izleme
@@ -110,7 +99,6 @@ public class App extends Application {
     private final Label pageTitle = new Label(I18n.t(PAGE_KEYS[0]));
     private Button maximizeButton;
     private Node titleBarDragHandle;
-    private volatile String trayState = "unknown";
 
     @Override
     public void start(Stage primaryStage) throws Exception {
@@ -131,7 +119,7 @@ public class App extends Application {
         TelegramNotifier telegram = new TelegramNotifier(settings);
         List<Notifier> notifiers = new ArrayList<>();
         notifiers.add((title, msg, urgent) -> {
-            if (settings.toastEnabled()) new ToastNotifier(() -> trayIcon).notify(title, msg, urgent);
+            if (settings.toastEnabled()) new ToastNotifier(tray::icon).notify(title, msg, urgent);
         });
         notifiers.add(telegram);
 
@@ -164,7 +152,7 @@ public class App extends Application {
             DashboardView d = dashboard;
             if (d != null) d.showError(error);
             Platform.runLater(() -> setStatus("unknown", I18n.t("status.noConnection")));
-            setTray("unknown", I18n.t("tray.modemUnreachable"));
+            tray.set("unknown", I18n.t("tray.modemUnreachable"));
         });
 
         BorderPane appRoot = buildShell(events);
@@ -210,7 +198,7 @@ public class App extends Application {
         });
         chrome.makeDraggable(titleBarDragHandle);
 
-        setupTray();
+        tray.install(this::showWindow, this::shutdown);
 
         // Modem yapilandirilmamis olsa da Pano acilir: internet olcumu tek basina
         // calisiyor, kullaniciyi bos bir ekranla karsilamanin anlami yok.
@@ -353,7 +341,7 @@ public class App extends Application {
 
         Button reboot = Ui.button(I18n.t("nav.reboot"), Icons.power(Icons.SM), "subtle");
         reboot.setMaxWidth(Double.MAX_VALUE);
-        reboot.setOnAction(e -> confirmReboot(reboot, events));
+        reboot.setOnAction(e -> RebootDialog.confirm(stage, reboot, monitor::rebootModem, events, tray));
 
         // Rapor modemsiz kurulumda da anlamli (internet olcumleri), o yuzden modem bolumunun disinda.
         Button report = Ui.button(I18n.t("nav.report"), Icons.fileText(Icons.SM), "subtle");
@@ -400,7 +388,7 @@ public class App extends Application {
             default -> I18n.t("status.lineUp");
         };
         Platform.runLater(() -> setStatus(state, label));
-        setTray(state, s.isUp()
+        tray.set(state, s.isUp()
                 ? I18n.t("tray.lineUp", Fmt.dec1(snr), Fmt.count(s.crcDown()))
                 : I18n.t("tray.lineDown"));
     }
@@ -419,7 +407,7 @@ public class App extends Application {
         String tip = I18n.t("tray.netUp");
         if (n.hasLatency()) tip = I18n.t("tray.netUpLatency", tip, Math.round(n.latencyMs()));
         if (n.lossPct() > 0) tip = I18n.t("tray.netUpLoss", tip, Fmt.pct0(n.lossPct()));
-        setTray(state, n.online() ? tip : I18n.t("tray.netDown"));
+        tray.set(state, n.online() ? tip : I18n.t("tray.netDown"));
     }
 
     private void setStatus(String state, String label) {
@@ -427,37 +415,6 @@ public class App extends Application {
         statusLabel.setText(label);
         statusLabel.getStyleClass().removeAll("up", "down", "warn");
         if (!"unknown".equals(state)) statusLabel.getStyleClass().add(state);
-    }
-
-    // ---------- modem yeniden baslatma ----------
-
-    private void confirmReboot(Button trigger, EventRepository events) {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                I18n.t("reboot.confirm"), ButtonType.YES, ButtonType.NO);
-        confirm.setHeaderText(I18n.t("reboot.title"));
-        confirm.initOwner(stage);
-        confirm.showAndWait().ifPresent(button -> {
-            if (button != ButtonType.YES) return;
-            trigger.setDisable(true);
-            monitor.rebootModem(error -> Platform.runLater(() -> {
-                trigger.setDisable(false);
-                if (error == null) {
-                    try {
-                        events.insert(LineEvent.Type.REBOOT, I18n.t("reboot.eventDetail"), 0);
-                    } catch (Exception ignored) {
-                        // olay kaydedilemese de reboot gonderildi; akisi bolmenin anlami yok
-                    }
-                    if (trayIcon != null) {
-                        trayIcon.displayMessage("LineWatch", I18n.t("reboot.sent"),
-                                TrayIcon.MessageType.INFO);
-                    }
-                } else {
-                    Alert error2 = new Alert(Alert.AlertType.ERROR, I18n.t("reboot.failed", error));
-                    error2.initOwner(stage);
-                    error2.show();
-                }
-            }));
-        });
     }
 
     private void applySettings() {
@@ -472,30 +429,7 @@ public class App extends Application {
                 : null);
     }
 
-    // ---------- tray ----------
-
-    private void setupTray() {
-        if (!SystemTray.isSupported()) return;
-        java.awt.EventQueue.invokeLater(() -> {
-            try {
-                PopupMenu menu = new PopupMenu();
-                MenuItem open = new MenuItem(I18n.t("tray.open"));
-                open.addActionListener(e -> Platform.runLater(this::showWindow));
-                MenuItem exit = new MenuItem(I18n.t("tray.exit"));
-                exit.addActionListener(e -> shutdown());
-                menu.add(open);
-                menu.addSeparator();
-                menu.add(exit);
-
-                trayIcon = new TrayIcon(trayImage("unknown"), "LineWatch", menu);
-                trayIcon.setImageAutoSize(true);
-                trayIcon.addActionListener(e -> Platform.runLater(this::showWindow));
-                SystemTray.getSystemTray().add(trayIcon);
-            } catch (Exception e) {
-                Log.get(App.class).log(Level.WARNING, "Tray kurulamadi", e);
-            }
-        });
-    }
+    // ---------- pencere ----------
 
     /** Eski surumden kalan duz metin sifre/token varsa DPAPI ile sifreleyip hemen kaydeder. */
     private void migrateSecrets() {
@@ -517,46 +451,9 @@ public class App extends Application {
         stage.requestFocus();
     }
 
-    /** Tray ikonunu duruma gore renklendirir ve ipucunu gunceller. */
-    private void setTray(String state, String tooltip) {
-        TrayIcon icon = trayIcon;
-        if (icon == null) return;
-        boolean changed = !state.equals(trayState);
-        trayState = state;
-        java.awt.EventQueue.invokeLater(() -> {
-            if (changed) icon.setImage(trayImage(state));
-            icon.setToolTip(tooltip);
-        });
-    }
-
-    private static final Map<String, BufferedImage> TRAY_CACHE = new HashMap<>();
-
-    /** Durum rengiyle doldurulmus daire icinde beyaz sinyal dalgasi. */
-    private static synchronized BufferedImage trayImage(String state) {
-        return TRAY_CACHE.computeIfAbsent(state, key -> {
-            int size = 32;
-            BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = image.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-            g.setColor(switch (key) {
-                case "up" -> new java.awt.Color(0x3e, 0xcf, 0x8e);
-                case "down" -> new java.awt.Color(0xe5, 0x48, 0x4d);
-                case "warn" -> new java.awt.Color(0xe8, 0xa3, 0x3d);
-                default -> new java.awt.Color(0x8a, 0x93, 0xa0);
-            });
-            g.fillOval(0, 0, size, size);
-            g.setColor(java.awt.Color.WHITE);
-            g.setStroke(new BasicStroke(3.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.drawPolyline(new int[]{7, 12, 16, 20, 25}, new int[]{20, 12, 22, 12, 17}, 5);
-            g.dispose();
-            return image;
-        });
-    }
-
     private void shutdown() {
         monitor.shutdown();
-        if (trayIcon != null) SystemTray.getSystemTray().remove(trayIcon);
+        tray.remove();
         db.close();
         Platform.exit();
         System.exit(0);
