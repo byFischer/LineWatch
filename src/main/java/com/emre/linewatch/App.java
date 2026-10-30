@@ -11,6 +11,7 @@ import com.emre.linewatch.collector.TpLinkCollector;
 import com.emre.linewatch.report.CsvExporter;
 import com.emre.linewatch.report.ReportBuilder;
 import com.emre.linewatch.config.I18n;
+import com.emre.linewatch.config.MemoryTrim;
 import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.Database;
@@ -31,7 +32,9 @@ import com.emre.linewatch.ui.Theme;
 import com.emre.linewatch.ui.Ui;
 import com.emre.linewatch.ui.WindowChrome;
 import javafx.application.Application;
+import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -90,6 +93,8 @@ public class App extends Application {
     /** Pencere bu kadar sure gizli kalirsa sayfalar bellekten atilir. */
     private static final double UI_RELEASE_SECONDS = 60;
     private final PauseTransition releaseTimer = new PauseTransition(Duration.seconds(UI_RELEASE_SECONDS));
+    /** Gizliyken calisma kumesi zamanla yeniden buyur; arada bir tekrar bosaltilir. */
+    private final Timeline trimTimer = new Timeline(new KeyFrame(Duration.minutes(30), e -> MemoryTrim.trimWorkingSet()));
     private ReportBuilder reportBuilder;
     private CsvExporter csvExporter;
 
@@ -183,9 +188,14 @@ public class App extends Application {
         releaseTimer.setOnFinished(e -> {
             if (!stage.isShowing()) releaseViews();
         });
+        trimTimer.setCycleCount(Timeline.INDEFINITE);
         stage.showingProperty().addListener((obs, was, showing) -> {
-            if (showing) releaseTimer.stop();
-            else releaseTimer.playFromStart();
+            if (showing) {
+                releaseTimer.stop();
+                trimTimer.stop();
+            } else {
+                releaseTimer.playFromStart();
+            }
         });
         // yerel tema takibi yoksa pencereye donuldugunde sistem temasi yeniden okunur
         stage.focusedProperty().addListener((obs, was, focused) -> {
@@ -254,7 +264,11 @@ public class App extends Application {
         }
         views.clear();
         stage.setScene(null);
+        // Once bos heap isletim sistemine iade edilsin (SerialGC tam GC'de kuculur),
+        // sonra dokunulmayan sayfalar RAM'den cikarilsin.
         System.gc();
+        MemoryTrim.trimWorkingSet();
+        trimTimer.playFromStart();
     }
 
     /** Sol menude marka altinda duran satir: izlenen modem ya da "internet izleme". */

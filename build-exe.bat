@@ -40,11 +40,18 @@ jpackage --type app-image ^
   --vendor "Emre Zeytin" ^
   --copyright "Copyright (c) 2026 Emre Zeytin" ^
   --description "DSL hat izleme ve bildirim uygulamasi" ^
-  --java-options "-Xms32m" ^
-  --java-options "-Xmx192m" ^
+  --java-options "-Xms16m" ^
+  --java-options "-Xmx160m" ^
   --java-options "-XX:+UseSerialGC" ^
   --java-options "-XX:MinHeapFreeRatio=10" ^
-  --java-options "-XX:MaxHeapFreeRatio=30" || exit /b 1
+  --java-options "-XX:MaxHeapFreeRatio=20" ^
+  --java-options "-XX:TieredStopAtLevel=1" ^
+  --java-options "-XX:ReservedCodeCacheSize=32m" ^
+  --java-options "-XX:+UseCompactObjectHeaders" ^
+  --java-options "-Dsun.java2d.d3d=false" ^
+  --java-options "-Dsun.java2d.noddraw=true" ^
+  --java-options "--enable-native-access=ALL-UNNAMED" || exit /b 1
+|| exit /b 1
 
 rmdir /s /q staging
 echo.
