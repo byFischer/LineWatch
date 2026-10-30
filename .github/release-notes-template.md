@@ -32,6 +32,14 @@ DSL hat verilerini de görmek istiyorsan **Ayarlar → Modem izleme**'yi işaret
 Uygulama pencere kapatılınca kapanmaz, sistem tepsisine küçülür ve arka planda
 izlemeye devam eder. Tamamen kapatmak için tepsi simgesine sağ tıkla → **Çıkış**.
 
+## Kanıt raporu
+
+Sol menüdeki **Kanıt raporu** butonu, seçtiğin dönem için servis sağlayıcına
+sunabileceğin bir rapor üretir: kesinti listesi, toplam kesinti süresi, SNR /
+senkron hızı / CRC / gecikme grafikleri ve hataların günün hangi saatlerinde
+yoğunlaştığı. Rapor tarayıcıda açılır, **Yazdır / PDF olarak kaydet** ile PDF'e
+dönüşür. İstersen ham ölçümler CSV olarak da kaydedilir.
+
 ## Uyumluluk
 
 | Özellik | Gereksinim |

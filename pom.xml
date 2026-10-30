@@ -6,7 +6,7 @@
 
     <groupId>com.emre.linewatch</groupId>
     <artifactId>linewatch</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>jar</packaging>
     <name>LineWatch</name>
     <description>DSL hat izleme ve bildirim uygulamasi (TP-Link Archer VR400)</description>
