@@ -186,7 +186,7 @@ public class MonitorService {
             new com.emre.linewatch.storage.RetentionJob(samples.database()).run(System.currentTimeMillis(),
                     settings.retentionDays(), settings.hourlyRetentionDays());
         } catch (Exception e) {
-            System.err.println("Saklama/ozet isi basarisiz: " + e.getMessage());
+            LOG.log(Level.WARNING, "Saklama/ozet isi basarisiz", e);
         }
     }
 
