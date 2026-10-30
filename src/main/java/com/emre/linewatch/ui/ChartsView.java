@@ -3,6 +3,7 @@ package com.emre.linewatch.ui;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.config.I18n;
+import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.EventRepository;
 import com.emre.linewatch.storage.LineEvent;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 
 /**
  * Ust uste uc grafik: SNR marji, senkron hizi, CRC artisi.
@@ -188,7 +190,7 @@ public class ChartsView extends VBox {
                 if (modem) loadDsl(from, now, eventList);
                 else loadNet(from, now, eventList);
             } catch (Exception e) {
-                System.err.println("Grafik verisi yüklenemedi: " + e.getMessage());
+                Log.get(ChartsView.class).log(Level.WARNING, "Grafik verisi yüklenemedi", e);
             }
         });
     }

@@ -7,6 +7,7 @@ import com.emre.linewatch.collector.ModemCollector;
 import com.emre.linewatch.collector.ModemCollector.CollectorException;
 import com.emre.linewatch.collector.NetProbe;
 import com.emre.linewatch.collector.NetSample;
+import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
@@ -18,10 +19,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Periyodik toplama dongusu. Her turda iki olcum yapilir:
- * modem (DSL) ve internet erisimi (gecikme/jitter/kayip).
+ * Periyodik toplama dongusu. Iki olcum ayri is parcaciklarinda ayni aralikla
+ * yapilir: modem (DSL) ve internet erisimi (gecikme/jitter/kayip). Boylece
+ * takilan bir modem HTTP cagrisi internet olcumlerini geciktirmez.
  *
  * <p>Modem yapilandirilmamis ya da desteklenmiyorsa dongu durmaz — internet
  * olcumu tek basina calisir, uygulama yine anlamli veri uretir.
@@ -33,16 +37,17 @@ public class MonitorService {
     private final NetSampleRepository netSamples;
     private final AlertEngine alerts;
     private final TelegramNotifier telegram;
+    private static final Logger LOG = Log.get(MonitorService.class);
+
     private final NetProbe probe;
-    private final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "linewatch-monitor");
-                t.setDaemon(true);
-                return t;
-            });
+    /** Modem toplama, yeniden baslatma ve toplayici kapatma bu is parcaciginda. */
+    private final ScheduledExecutorService modemScheduler = daemonScheduler("linewatch-modem");
+    /** Internet olcumu ve gunluk temizlik bu is parcaciginda. */
+    private final ScheduledExecutorService netScheduler = daemonScheduler("linewatch-net");
 
     private volatile ModemCollector collector;
-    private ScheduledFuture<?> task;
+    private ScheduledFuture<?> modemTask;
+    private ScheduledFuture<?> netTask;
     private final List<Consumer<LineSample>> sampleListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<NetSample>> netListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<String>> statusListeners = new CopyOnWriteArrayList<>();
@@ -65,10 +70,18 @@ public class MonitorService {
         this.probe = probe;
     }
 
+    private static ScheduledExecutorService daemonScheduler(String name) {
+        return Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, name);
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
     public void setCollector(ModemCollector collector) {
         ModemCollector old = this.collector;
         this.collector = collector;
-        if (old != null) scheduler.execute(old::close);
+        if (old != null) modemScheduler.execute(old::close);
     }
 
     /** Modem izleme kapatildiginda toplayiciyi birakir (dongu calismaya devam eder). */
@@ -79,7 +92,7 @@ public class MonitorService {
     public synchronized void start() {
         schedule();
         // gunluk temizlik
-        scheduler.scheduleWithFixedDelay(this::cleanup, 1, 24 * 60, TimeUnit.MINUTES);
+        netScheduler.scheduleWithFixedDelay(this::cleanup, 1, 24 * 60, TimeUnit.MINUTES);
     }
 
     /** Ayarlar degistiginde (aralik, sifre) donguyu yeni degerlerle yeniden kurar. */
@@ -89,42 +102,62 @@ public class MonitorService {
     }
 
     private synchronized void schedule() {
-        if (task != null) task.cancel(false);
-        task = scheduler.scheduleWithFixedDelay(this::tick, 0,
-                Math.max(5, settings.pollSeconds()), TimeUnit.SECONDS);
+        if (modemTask != null) modemTask.cancel(false);
+        if (netTask != null) netTask.cancel(false);
+        long period = Math.max(5, settings.pollSeconds());
+        modemTask = modemScheduler.scheduleWithFixedDelay(this::modemTick, 0, period, TimeUnit.SECONDS);
+        netTask = netScheduler.scheduleWithFixedDelay(this::netTick, 0, period, TimeUnit.SECONDS);
     }
 
-    private void tick() {
-        tickModem();
+    private void modemTick() {
+        LineSample s = tickModem();
+        // Ag olcumu kapaliysa Telegram kuyrugu icin DSL durumu en iyi tahmin.
+        if (!settings.netProbeEnabled()) flushTelegram(s != null ? s.isUp() : isLastSampleUp());
+    }
+
+    private void netTick() {
         NetSample net = tickNet();
-
-        // Kuyruktaki Telegram mesajlari ancak cikis varken gonderilebilir.
-        // Ag olcumu kapaliysa DSL durumu en iyi tahmin.
-        LineSample s = lastSample;
-        boolean online = net != null ? net.online() : (s != null && s.isUp());
-        if (online && telegram.hasPending()) telegram.flush();
+        if (net != null) flushTelegram(net.online());
     }
 
-    private void tickModem() {
+    private boolean isLastSampleUp() {
+        LineSample s = lastSample;
+        return s != null && s.isUp();
+    }
+
+    /** Kuyruktaki Telegram mesajlari ancak cikis varken gonderilebilir. */
+    private void flushTelegram(boolean online) {
+        try {
+            if (online && telegram.hasPending()) telegram.flush();
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Telegram kuyrugu gonderilemedi", e);
+        }
+    }
+
+    /** Olcum yapildiysa sonucu, toplayici yoksa ya da hata olduysa null dondurur. */
+    private LineSample tickModem() {
         ModemCollector c = collector;
-        if (c == null) return;
+        if (c == null) return null;
         try {
             LineSample s = c.collect();
             lastSample = s;
             try {
                 samples.insert(s);
             } catch (Exception e) {
-                System.err.println("DB yazma hatasi: " + e.getMessage());
+                LOG.log(Level.WARNING, "DB yazma hatasi", e);
             }
             alerts.onSample(s);
             for (Consumer<LineSample> l : sampleListeners) l.accept(s);
             for (Consumer<String> l : statusListeners) l.accept(null);
+            return s;
         } catch (CollectorException e) {
             alerts.onError(e);
             for (Consumer<String> l : statusListeners) l.accept(e.getMessage());
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Modem olcumunde beklenmeyen hata", e);
             for (Consumer<String> l : statusListeners) l.accept("Beklenmeyen hata: " + e.getMessage());
         }
+        return null;
     }
 
     /** Olcum yapildiysa sonucu, ag izleme kapaliysa null dondurur. */
@@ -136,13 +169,13 @@ public class MonitorService {
             try {
                 netSamples.insert(n);
             } catch (Exception e) {
-                System.err.println("Ag olcumu yazilamadi: " + e.getMessage());
+                LOG.log(Level.WARNING, "Ag olcumu yazilamadi", e);
             }
             alerts.onNetSample(n);
             for (Consumer<NetSample> l : netListeners) l.accept(n);
             return n;
         } catch (Exception e) {
-            System.err.println("Ag olcumu hatasi: " + e.getMessage());
+            LOG.log(Level.WARNING, "Ag olcumu hatasi", e);
             return null;
         }
     }
@@ -169,7 +202,7 @@ public class MonitorService {
             callback.accept("Toplayici hazir degil (once modem sifresini kaydet)");
             return;
         }
-        scheduler.execute(() -> {
+        modemScheduler.execute(() -> {
             try {
                 c.reboot();
                 callback.accept(null);
@@ -187,7 +220,8 @@ public class MonitorService {
     public boolean hasCollector() { return collector != null; }
 
     public void shutdown() {
-        scheduler.shutdownNow();
+        netScheduler.shutdownNow();
+        modemScheduler.shutdownNow();
         ModemCollector c = collector;
         if (c != null) c.close();
     }

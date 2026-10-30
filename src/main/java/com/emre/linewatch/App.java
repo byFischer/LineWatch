@@ -11,6 +11,7 @@ import com.emre.linewatch.collector.TpLinkCollector;
 import com.emre.linewatch.report.CsvExporter;
 import com.emre.linewatch.report.ReportBuilder;
 import com.emre.linewatch.config.I18n;
+import com.emre.linewatch.config.Log;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.Database;
 import com.emre.linewatch.storage.EventRepository;
@@ -60,6 +61,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 /**
  * LineWatch: tray'de yasayan DSL hat izleyici.
@@ -98,6 +100,7 @@ public class App extends Application {
         Platform.setImplicitExit(false);
 
         settings = Settings.load();
+        migrateSecrets();
         applyThemePreference();
 
         db = new Database();
@@ -406,9 +409,18 @@ public class App extends Application {
                 trayIcon.addActionListener(e -> Platform.runLater(this::showWindow));
                 SystemTray.getSystemTray().add(trayIcon);
             } catch (Exception e) {
-                System.err.println("Tray kurulamadi: " + e.getMessage());
+                Log.get(App.class).log(Level.WARNING, "Tray kurulamadi", e);
             }
         });
+    }
+
+    /** Eski surumden kalan duz metin sifre/token varsa DPAPI ile sifreleyip hemen kaydeder. */
+    private void migrateSecrets() {
+        try {
+            if (settings.migrateSecrets()) settings.save();
+        } catch (Exception e) {
+            Log.get(App.class).log(Level.WARNING, "Sifreli ayarlar kaydedilemedi", e);
+        }
     }
 
     private void showWindow() {
@@ -463,6 +475,9 @@ public class App extends Application {
     }
 
     public static void main(String[] args) {
+        // Paketlenmis .exe'de konsol yok: hatalar %APPDATA%/LineWatch/logs altina yazilir.
+        Log.init(Settings.DIR.resolve("logs"));
+        Log.installUncaughtHandler();
         // Dil, JavaFX nesneleri olusmadan once secilmeli: alan baslaticilari
         // (statusLabel, pageTitle...) start() cagrilmadan once calisiyor.
         I18n.setLanguage(Settings.load().language());

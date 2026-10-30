@@ -36,8 +36,12 @@ public class TelegramNotifier implements Notifier {
         flush();
     }
 
-    /** Kuyruktaki mesajlari gondermeyi dener; basarisiz olursa kuyrukta kalirlar. */
-    public void flush() {
+    /**
+     * Kuyruktaki mesajlari gondermeyi dener; basarisiz olursa kuyrukta kalirlar.
+     * Modem ve ag is parcaciklari ayni anda cagirabilir; ayni mesaj iki kez gitmesin
+     * diye senkronize.
+     */
+    public synchronized void flush() {
         Pending p;
         while ((p = queue.peek()) != null) {
             if (!send(p)) return;

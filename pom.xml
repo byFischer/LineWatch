@@ -12,7 +12,7 @@
     <description>DSL hat izleme ve bildirim uygulamasi (TP-Link Archer VR400)</description>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javafx.version>21.0.7</javafx.version>
     </properties>
@@ -50,6 +50,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
+                <configuration>
+                    <!-- SecretStore DPAPI'ye FFM ile erisir; uyari basilmasin -->
+                    <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+                </configuration>
             </plugin>
             <!-- mvn package: bagimli jar'larla calisir dagitim (target/linewatch-...-jar-with-dependencies.jar) -->
             <plugin>
@@ -61,6 +65,10 @@
                         <manifest>
                             <mainClass>com.emre.linewatch.Launcher</mainClass>
                         </manifest>
+                        <manifestEntries>
+                            <!-- SecretStore (DPAPI, FFM) icin; "restricted method" uyarisini kapatir -->
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                        </manifestEntries>
                     </archive>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
