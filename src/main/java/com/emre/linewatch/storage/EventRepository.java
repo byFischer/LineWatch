@@ -85,6 +85,23 @@ public class EventRepository {
         return out;
     }
 
+    /**
+     * Verilen andan onceki, verilen tiplerden son olay; yoksa null. Rapor bunu
+     * donemden once baslayip hala suren kesintiyi bulmak icin kullanir.
+     */
+    public synchronized LineEvent findLastBefore(long ts, LineEvent.Type a, LineEvent.Type b) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT id,ts,type,detail,duration_sec FROM events "
+                        + "WHERE ts < ? AND type IN (?, ?) ORDER BY ts DESC LIMIT 1")) {
+            ps.setLong(1, ts);
+            ps.setString(2, a.name());
+            ps.setString(3, b.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? read(rs) : null;
+            }
+        }
+    }
+
     public synchronized List<LineEvent> findRecent(int limit) throws SQLException {
         List<LineEvent> out = new ArrayList<>();
         try (PreparedStatement ps = db.conn().prepareStatement(

@@ -354,6 +354,23 @@
 .combo-box-popup .list-cell:filled:hover { -fx-background-color: -lw-hover; }
 .combo-box-popup .list-cell:filled:selected { -fx-background-color: -lw-accent-soft; -fx-text-fill: -lw-accent; }
 
+.date-picker { -fx-background-color: transparent; }
+.date-picker > .arrow-button { -fx-background-color: transparent; -fx-cursor: hand; }
+.date-picker > .arrow-button > .arrow { -fx-background-color: -lw-text-muted; }
+.date-picker-popup { -fx-background-color: -lw-surface; -fx-border-color: -lw-border; }
+.date-picker-popup .month-year-pane { -fx-background-color: -lw-surface-alt; }
+.date-picker-popup .label, .date-picker-popup .spinner .label { -fx-text-fill: -lw-text; }
+.date-picker-popup .spinner .button { -fx-background-color: transparent; }
+.date-picker-popup .spinner .button .left-arrow,
+.date-picker-popup .spinner .button .right-arrow { -fx-background-color: -lw-text-muted; }
+.date-picker-popup .day-name-cell { -fx-text-fill: -lw-text-faint; -fx-background-color: -lw-surface; }
+.date-picker-popup .day-cell { -fx-background-color: -lw-surface; -fx-text-fill: -lw-text; }
+.date-picker-popup .day-cell:hover { -fx-background-color: -lw-hover; }
+.date-picker-popup .day-cell.selected { -fx-background-color: -lw-accent; -fx-text-fill: -lw-on-accent; }
+.date-picker-popup .day-cell.previous-month,
+.date-picker-popup .day-cell.next-month { -fx-text-fill: -lw-text-faint; }
+.date-picker-popup .day-cell:disabled { -fx-opacity: 0.35; }
+
 .check-box { -fx-text-fill: -lw-text; -fx-cursor: hand; -fx-font-size: 13px; }
 .check-box .box {
     -fx-background-color: -lw-surface-alt;

@@ -55,7 +55,9 @@ public final class Icons {
     private static final String ARROW_DOWN = "M12 5v14 M19 12l-7 7-7-7";
     private static final String MINUS = "M5 12h14";
     private static final String CHEVRON_RIGHT = "M9 18l6-6-6-6";
-    private static final String PLUG = "M9 2v6 M15 2v6 M6 8h12v4a6 6 0 0 1-12 0z M12 18v4";
+    private static final String FILE_TEXT = "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z "
+            + "M14 2v6h6 M16 13H8 M16 17H8 M10 9H8";
+    private static final String PLUG ="M9 2v6 M15 2v6 M6 8h12v4a6 6 0 0 1-12 0z M12 18v4";
 
     private Icons() {
     }
@@ -86,6 +88,7 @@ public final class Icons {
     public static Node flat(double size)     { return icon(MINUS, size); }
     public static Node chevron(double size)  { return icon(CHEVRON_RIGHT, size); }
     public static Node plug(double size)     { return icon(PLUG, size); }
+    public static Node fileText(double size) { return icon(FILE_TEXT, size); }
 
     /** Olay tipine karsilik gelen ikon, ciddiyet rengiyle boyanmis. */
     public static Node forEvent(LineEvent.Type type, double size) {

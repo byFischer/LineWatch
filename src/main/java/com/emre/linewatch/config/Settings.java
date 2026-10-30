@@ -86,6 +86,18 @@ public class Settings {
 
     public int retentionDays() { return getInt("db.retentionDays", 30); }
 
+    // ---- kanit raporu: bir sonraki raporda hazir gelsin diye saklanir ----
+
+    public String reportSubscriber() { return p.getProperty("report.subscriber", ""); }
+    public void reportSubscriber(String v) { p.setProperty("report.subscriber", v); }
+
+    /** Abonelik indirme hizi (Mbps); bilinmiyorsa 0. */
+    public double reportPlanMbps() {
+        try { return Math.max(0, Double.parseDouble(p.getProperty("report.planMbps", "0"))); }
+        catch (NumberFormatException e) { return 0; }
+    }
+    public void reportPlanMbps(double v) { p.setProperty("report.planMbps", String.valueOf(v)); }
+
     /** Tema tercihi: AUTO / DARK / LIGHT (bkz. ui.Theme.Mode). */
     public String theme() { return p.getProperty("ui.theme", "AUTO"); }
     public void theme(String v) { p.setProperty("ui.theme", v); }

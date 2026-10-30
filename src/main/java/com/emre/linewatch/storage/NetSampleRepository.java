@@ -87,14 +87,20 @@ public class NetSampleRepository {
      * ve cevrimici olcum orani (%). Hic kayit yoksa tum alanlar -1 / 0.
      */
     public synchronized Summary summarySince(long ts) throws SQLException {
+        return summaryRange(ts, Long.MAX_VALUE);
+    }
+
+    /** {@link #summarySince} ile ayni ozet, kapali bir aralik icin (rapor). */
+    public synchronized Summary summaryRange(long from, long to) throws SQLException {
         try (PreparedStatement ps = db.conn().prepareStatement("""
                 SELECT AVG(CASE WHEN latency_ms >= 0 THEN latency_ms END),
                        AVG(CASE WHEN jitter_ms  >= 0 THEN jitter_ms  END),
                        AVG(loss_pct),
                        AVG(online) * 100.0,
                        COUNT(*)
-                FROM net_samples WHERE ts >= ?""")) {
-            ps.setLong(1, ts);
+                FROM net_samples WHERE ts BETWEEN ? AND ?""")) {
+            ps.setLong(1, from);
+            ps.setLong(2, to);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Summary.empty();
                 int count = rs.getInt(5);
@@ -105,6 +111,41 @@ public class NetSampleRepository {
                 if (rs.wasNull()) jitter = -1;
                 return new Summary(latency, jitter, rs.getDouble(3), rs.getDouble(4), count);
             }
+        }
+    }
+
+    /** Saklanan en eski olcumun zamani; tablo bossa Long.MAX_VALUE. */
+    public synchronized long firstTs() throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement("SELECT MIN(ts) FROM net_samples")) {
+            long v = readTs(ps);
+            return v < 0 ? Long.MAX_VALUE : v;
+        }
+    }
+
+    /** Rapor icin: ts'den sonraki ilk cevrimici olcumun zamani; yoksa -1. */
+    public synchronized long firstOnlineAfter(long ts) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT MIN(ts) FROM net_samples WHERE ts > ? AND online = 1")) {
+            ps.setLong(1, ts);
+            return readTs(ps);
+        }
+    }
+
+    /** Rapor icin: [from, to) araligindaki son cevrimdisi olcumun zamani; yoksa -1. */
+    public synchronized long lastOfflineBetween(long from, long to) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT MAX(ts) FROM net_samples WHERE ts >= ? AND ts < ? AND online = 0")) {
+            ps.setLong(1, from);
+            ps.setLong(2, to);
+            return readTs(ps);
+        }
+    }
+
+    private static long readTs(PreparedStatement ps) throws SQLException {
+        try (ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) return -1;
+            long v = rs.getLong(1);
+            return rs.wasNull() ? -1 : v;
         }
     }
 

@@ -8,6 +8,8 @@ import com.emre.linewatch.alert.ToastNotifier;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.collector.TpLinkCollector;
+import com.emre.linewatch.report.CsvExporter;
+import com.emre.linewatch.report.ReportBuilder;
 import com.emre.linewatch.config.I18n;
 import com.emre.linewatch.config.Settings;
 import com.emre.linewatch.storage.Database;
@@ -22,6 +24,7 @@ import com.emre.linewatch.ui.DashboardView;
 import com.emre.linewatch.ui.EventsView;
 import com.emre.linewatch.ui.Fmt;
 import com.emre.linewatch.ui.Icons;
+import com.emre.linewatch.ui.ReportDialog;
 import com.emre.linewatch.ui.SettingsView;
 import com.emre.linewatch.ui.Theme;
 import com.emre.linewatch.ui.Ui;
@@ -72,6 +75,8 @@ public class App extends Application {
     private WindowChrome chrome;
     private DashboardView dashboard;
     private ChartsView charts;
+    private ReportBuilder reportBuilder;
+    private CsvExporter csvExporter;
 
     private final StackPane content = new StackPane();
     private final List<HBox> navItems = new ArrayList<>();
@@ -99,6 +104,8 @@ public class App extends Application {
         SampleRepository samples = new SampleRepository(db);
         NetSampleRepository netSamples = new NetSampleRepository(db);
         EventRepository events = new EventRepository(db);
+        reportBuilder = new ReportBuilder(samples, netSamples, events);
+        csvExporter = new CsvExporter(db);
 
         TelegramNotifier telegram = new TelegramNotifier(settings);
         List<Notifier> notifiers = new ArrayList<>();
@@ -265,9 +272,15 @@ public class App extends Application {
         reboot.setMaxWidth(Double.MAX_VALUE);
         reboot.setOnAction(e -> confirmReboot(reboot, events));
 
-        VBox rail = new VBox(brandBox, items, Ui.vSpacer(),
+        // Rapor modemsiz kurulumda da anlamli (internet olcumleri), o yuzden modem bolumunun disinda.
+        Button report = Ui.button(I18n.t("nav.report"), Icons.fileText(Icons.SM), "subtle");
+        report.setMaxWidth(Double.MAX_VALUE);
+        report.setOnAction(e -> ReportDialog.show(stage, settings, reportBuilder, csvExporter, "TP-Link Archer VR400"));
+
+        VBox rail = new VBox(brandBox, items, Ui.vSpacer(), report,
                 Ui.cardTitle(I18n.t("nav.modemSection")), reboot);
         rail.getStyleClass().add("nav-rail");
+        VBox.setMargin(report, new Insets(0, 0, 14, 0));
         VBox.setMargin(reboot, new Insets(6, 0, 0, 0));
         return rail;
     }
