@@ -3,6 +3,7 @@ package com.emre.linewatch.report;
 import com.emre.linewatch.collector.LineSample;
 import com.emre.linewatch.collector.NetSample;
 import com.emre.linewatch.storage.EventRepository;
+import com.emre.linewatch.storage.HourlyRepository;
 import com.emre.linewatch.storage.LineEvent;
 import com.emre.linewatch.storage.NetSampleRepository;
 import com.emre.linewatch.storage.SampleRepository;
@@ -24,6 +25,7 @@ public class ReportBuilder {
     private final SampleRepository samples;
     private final NetSampleRepository netSamples;
     private final EventRepository events;
+    private final HourlyRepository hourly;
     private final ZoneId zone;
 
     public ReportBuilder(SampleRepository samples, NetSampleRepository netSamples, EventRepository events) {
@@ -35,6 +37,8 @@ public class ReportBuilder {
         this.samples = samples;
         this.netSamples = netSamples;
         this.events = events;
+        // Saatlik ozetler ayni veritabaninda; ham verisi silinmis eski donemler icin kullanilir.
+        this.hourly = new HourlyRepository(samples.database());
         this.zone = zone;
     }
 
@@ -45,41 +49,29 @@ public class ReportBuilder {
     ReportData build(long from, long to, ReportOptions options, long now) throws SQLException {
         if (to <= from) throw new IllegalArgumentException("to <= from");
 
-        var line = samples.stats(from, to);
-        var net = netSamples.summaryRange(from, to);
+        History history = new History(samples, netSamples, hourly, from, to);
+        var line = history.lineStats();
+        var net = history.netSummary();
 
         List<LineEvent> eventList = events.findRange(from, to);
         List<Outage> dsl;
         List<Outage> netOutages;
         try {
             dsl = Outage.fromEvents(withPrevious(eventList, from, LineEvent.Type.LINK_DOWN, LineEvent.Type.LINK_UP),
-                    Outage.Kind.DSL, from, to, new Outage.Timeline() {
-                        @Override
-                        public long firstUpAfter(long ts) { return sql(() -> samples.firstUpAfter(ts)); }
-
-                        @Override
-                        public long lastDownBetween(long a, long b) { return sql(() -> samples.lastDownBetween(a, b)); }
-
-                        @Override
-                        public long dataStart() { return sql(samples::firstTs); }
-                    });
+                    Outage.Kind.DSL, from, to, history.lineTimeline());
             netOutages = Outage.fromEvents(withPrevious(eventList, from, LineEvent.Type.NET_DOWN, LineEvent.Type.NET_UP),
-                    Outage.Kind.NET, from, to, new Outage.Timeline() {
-                        @Override
-                        public long firstUpAfter(long ts) { return sql(() -> netSamples.firstOnlineAfter(ts)); }
-
-                        @Override
-                        public long lastDownBetween(long a, long b) { return sql(() -> netSamples.lastOfflineBetween(a, b)); }
-
-                        @Override
-                        public long dataStart() { return sql(netSamples::firstTs); }
-                    });
+                    Outage.Kind.NET, from, to, history.netTimeline());
         } catch (SqlFailure e) {
             throw e.cause;
         }
 
         long[] crcByHour = new long[24];
         long crcTotal = 0;
+        // Ham verisi silinmis saatler: CRC artisi ozet uretilirken hesaplanmisti
+        for (HourlyRepository.LineHour h : history.lineHours) {
+            crcTotal += h.crcInc();
+            crcByHour[hourOf(h.hour())] += h.crcInc();
+        }
         long prev = -1;
         for (long[] point : samples.findCrcPoints(from, to)) {
             // Sayac geri gittiyse modem yeniden baslamis ya da hat yeniden senkron
@@ -96,9 +88,9 @@ public class ReportBuilder {
         for (LineEvent e : eventList) counts.merge(e.type(), 1, Integer::sum);
 
         List<LineSample> lineSeries = line.samples() > 0
-                ? samples.findRange(from, to, CHART_POINTS) : List.of();
+                ? history.lineSeries(CHART_POINTS) : List.of();
         List<NetSample> netSeries = net.hasData()
-                ? netSamples.findRange(from, to, CHART_POINTS) : List.of();
+                ? history.netSeries(CHART_POINTS) : List.of();
 
         long span = Math.max(1, Math.min(to, now) - from);
         return new ReportData(from, to, now, options, line, net,
@@ -106,7 +98,7 @@ public class ReportBuilder {
                 coverage(net.samples(), options.pollSeconds(), span),
                 dsl, netOutages, crcTotal, crcByHour,
                 startsByHour(dsl, from), startsByHour(netOutages, from),
-                lineSeries, netSeries, counts);
+                lineSeries, netSeries, counts, history.hourlyUntil());
     }
 
     /** Donemden once baslamis ve hala suren bir kesinti kaybolmasin diye onceki son olay basa eklenir. */
@@ -120,12 +112,12 @@ public class ReportBuilder {
         return out;
     }
 
-    private interface SqlCall {
+    interface SqlCall {
         long run() throws SQLException;
     }
 
     /** Timeline arayuzu checked exception tasiyamadigi icin SQL hatasi sarilip build'de acilir. */
-    private static long sql(SqlCall call) {
+    static long sql(SqlCall call) {
         try {
             return call.run();
         } catch (SQLException e) {

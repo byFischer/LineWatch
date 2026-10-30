@@ -121,7 +121,13 @@ public class Settings {
     public String telegramChatId() { return p.getProperty("telegram.chatId", ""); }
     public void telegramChatId(String v) { p.setProperty("telegram.chatId", v); }
 
+    /** Ham olcumlerin (15 sn'lik kayitlar) saklanma suresi, gun. */
     public int retentionDays() { return getInt("db.retentionDays", 30); }
+    public void retentionDays(int v) { p.setProperty("db.retentionDays", String.valueOf(Math.max(1, v))); }
+
+    /** Saatlik ozetlerin saklanma suresi, gun; ham olcumler silindikten sonra rapor bunlara dayanir. */
+    public int hourlyRetentionDays() { return getInt("db.hourlyRetentionDays", 365); }
+    public void hourlyRetentionDays(int v) { p.setProperty("db.hourlyRetentionDays", String.valueOf(Math.max(1, v))); }
 
     // ---- kanit raporu: bir sonraki raporda hazir gelsin diye saklanir ----
 

@@ -16,6 +16,11 @@ public class SampleRepository {
         this.db = db;
     }
 
+    /** Ayni veritabanini kullanan islere (saklama, saatlik ozet) baglanti vermek icin. */
+    public Database database() {
+        return db;
+    }
+
     public synchronized void insert(LineSample s) throws SQLException {
         try (PreparedStatement ps = db.conn().prepareStatement("""
                 INSERT OR REPLACE INTO samples VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""")) {
@@ -161,29 +166,17 @@ public class SampleRepository {
      * oldugu orneklemlerden alinir; kopukken modem 0 dondurur ve ortalamayi bozar.
      */
     public synchronized LineStats stats(long from, long to) throws SQLException {
-        try (PreparedStatement ps = db.conn().prepareStatement("""
-                SELECT COUNT(*),
-                       SUM(CASE WHEN LOWER(status) = 'up' THEN 1 ELSE 0 END),
-                       AVG(CASE WHEN LOWER(status) = 'up' AND snr_down > ? THEN snr_down END),
-                       MIN(CASE WHEN LOWER(status) = 'up' AND snr_down > ? THEN snr_down END),
-                       AVG(CASE WHEN LOWER(status) = 'up' THEN snr_up END),
-                       AVG(CASE WHEN LOWER(status) = 'up' THEN sync_down END),
-                       MIN(CASE WHEN LOWER(status) = 'up' THEN sync_down END),
-                       AVG(CASE WHEN LOWER(status) = 'up' THEN sync_up END),
-                       AVG(CASE WHEN LOWER(status) = 'up' THEN max_down END),
-                       AVG(CASE WHEN LOWER(status) = 'up' THEN atten_down END),
-                       MAX(modulation)
-                FROM samples WHERE ts BETWEEN ? AND ?""")) {
-            ps.setInt(1, MIN_VALID_SNR);
-            ps.setInt(2, MIN_VALID_SNR);
-            ps.setLong(3, from);
-            ps.setLong(4, to);
+        return aggregate(from, to).toStats();
+    }
+
+    /** [from, to] araligindaki olcumlerin toplamlari (saatlik ozetlerle birlestirilebilir). */
+    public synchronized LineAggregate aggregate(long from, long to) throws SQLException {
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT " + LineAggregate.COLUMNS + " FROM samples WHERE ts BETWEEN ? AND ?")) {
+            ps.setLong(1, from);
+            ps.setLong(2, to);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next() || rs.getInt(1) == 0) return LineStats.EMPTY;
-                return new LineStats(rs.getInt(1), rs.getInt(2),
-                        rs.getDouble(3) / 10.0, rs.getDouble(4) / 10.0, rs.getDouble(5) / 10.0,
-                        rs.getDouble(6), rs.getInt(7), rs.getDouble(8), rs.getDouble(9),
-                        rs.getDouble(10) / 10.0, rs.getString(11) == null ? "" : rs.getString(11));
+                return rs.next() ? LineAggregate.read(rs, 1) : LineAggregate.EMPTY;
             }
         }
     }
